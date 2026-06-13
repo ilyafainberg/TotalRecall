@@ -27,12 +27,27 @@ The vision is a personal, private "computer memory" — Microsoft Recall, but op
 
 ## Install
 
-Download the latest release ZIP from <https://github.com/ilyafainberg/TotalRecall/releases>. The ZIP is **self-contained** — no .NET runtime installation required.
+There are two ways to install TotalRecall — pick whichever you prefer:
 
-1. Extract `TotalRecall-vX.Y.Z-win-x64.zip` somewhere stable, e.g. `C:\Tools\TotalRecall\`. Don't run from Downloads or a temp folder — the MCP path you wire into your AI agent later must be permanent.
-2. Run `TotalRecall\TotalRecall.exe`.
-3. On the **Settings** tab, pick an encryption mode (default is **Windows account** — DPAPI-encrypted, silent unlock) and a capture interval (default 10 s). Click **Save**.
-4. On the **Capture** tab, click **Start**.
+### Option 1 — ClickOnce installer (recommended)
+
+The OneClick installer is the easiest path. No admin rights, no UAC prompt, automatic Start Menu shortcut, per-user install.
+
+1. Download **`TotalRecall-1.0.0-ClickOnce.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
+2. Extract the ZIP somewhere temporary (e.g. Downloads is fine — only `setup.exe` matters after install).
+3. Double-click **`setup.exe`**.
+4. Windows SmartScreen will say *"Windows protected your PC"* because this build isn't Authenticode-signed yet — click **More info → Run anyway**.
+5. The app installs into `%LOCALAPPDATA%\Apps\2.0\…\` and a Start Menu shortcut is created. Launch *TotalRecall* from the Start Menu.
+
+The MCP server (`TotalRecall.Mcp.exe`) is bundled inside the install. To find its current absolute path (it's hash-based and changes between updates), launch TotalRecall and check the activity log on the Capture tab — the path is printed at startup.
+
+### Option 2 — Portable ZIP
+
+If you prefer to control where the app lives (e.g. on a USB stick or under `C:\Tools\`), grab the portable ZIP — no install, no Start Menu entry.
+
+1. Download **`TotalRecall-1.0.0-win-x64.zip`** from the same release page.
+2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall\`). Don't run from Downloads — the MCP path you wire into your AI agent must be permanent.
+3. Run `TotalRecall\TotalRecall.exe`.
 
 The release ZIP includes **both** the desktop app and the MCP server side by side:
 
@@ -47,7 +62,13 @@ TotalRecall-1.0.0-win-x64\
 └─ LICENSE
 ```
 
-No separate install is needed for the MCP server — just point your AI agent at `TotalRecall.Mcp\TotalRecall.Mcp.exe` (see [MCP server setup](#mcp-server-setup)).
+### First-run setup (either option)
+
+1. On the **Settings** tab, pick an encryption mode (default is **Windows account** — DPAPI-encrypted, silent unlock) and a capture interval (default 10 s). Click **Save**.
+2. On the **Capture** tab, click **Start**.
+3. (Optional) Wire `TotalRecall.Mcp.exe` into your AI agent — see [MCP server setup](#mcp-server-setup) for Microsoft Scout, GitHub Copilot CLI, and Claude Desktop wiring.
+
+Both packages are **self-contained** — no separate .NET runtime installation required.
 
 ### Command-line flags
 

@@ -28,10 +28,18 @@ First public release. A local, searchable, encrypted index of everything that ha
 
 ## Install
 
-1. Download `TotalRecall-1.0.0-win-x64.zip` from the release page.
-2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall\`). Don't run from Downloads.
-3. Run `TotalRecall\TotalRecall.exe`. Configure encryption + capture interval on the **Settings** tab. Click **Save**. Click **Start** on the **Capture** tab.
-4. (Optional) Wire `TotalRecall.Mcp\TotalRecall.Mcp.exe` into your AI agent — see [README.md](README.md#mcp-server-setup) for Scout, GitHub Copilot CLI, and Claude Desktop configs.
+Two install options — pick whichever you prefer:
+
+- **OneClick installer** (`TotalRecall-1.0.0-ClickOnce.zip`, ~115 MB): extract, double-click `setup.exe`. Per-user install, Start Menu shortcut, no admin needed. Click *More info → Run anyway* on the SmartScreen warning (build isn't Authenticode-signed yet).
+- **Portable ZIP** (`TotalRecall-1.0.0-win-x64.zip`, ~116 MB): extract somewhere stable (e.g. `C:\Tools\TotalRecall\`), run `TotalRecall\TotalRecall.exe`.
+
+Both packages are **self-contained** — no .NET runtime required. The MCP server is bundled in both.
+
+### First-run setup
+
+1. On the **Settings** tab, pick an encryption mode and capture interval. Click **Save**.
+2. On the **Capture** tab, click **Start**.
+3. (Optional) Wire the MCP server into your AI agent — see [README.md](README.md#mcp-server-setup) for Scout, GitHub Copilot CLI, and Claude Desktop configs.
 
 ## Requirements
 

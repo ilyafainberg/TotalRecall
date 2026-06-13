@@ -13,6 +13,7 @@
     <AssemblyName>TotalRecall</AssemblyName>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +24,21 @@
     <None Include="app.ico" />
     <None Include="app.svg" />
     <None Include="make-icon.ps1" />
+  </ItemGroup>
+
+  <!--
+    Bundle the MCP server alongside the WinForms app for ClickOnce / dotnet publish.
+    `build-release.ps1` (or msbuild /t:Publish on the ClickOnce profile) pre-publishes
+    the MCP project into ..\TotalRecall.Mcp\bin\$(Configuration)\$(TargetFramework)\win-x64\publish\
+    and these Content items pull the result into a McpServer\ subfolder of the app.
+  -->
+  <ItemGroup>
+    <Content Include="..\TotalRecall.Mcp\bin\$(Configuration)\$(TargetFramework)\win-x64\publish\**\*"
+             Condition="Exists('..\TotalRecall.Mcp\bin\$(Configuration)\$(TargetFramework)\win-x64\publish')">
+      <Link>McpServer\%(RecursiveDir)%(FileName)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

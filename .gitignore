@@ -40,4 +40,4 @@ secrets/
 local.settings.json
 
 ## Release ZIPs (built by build-release.ps1; uploaded as GH release assets)
-TotalRecall-*-win-x64.zip
+TotalRecall-*.zip

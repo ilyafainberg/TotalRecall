@@ -22,6 +22,7 @@ $rid          = 'win-x64'
 $stagingRoot  = Join-Path $root "artifacts\staging\TotalRecall-$Version-$rid"
 $artifactsDir = Join-Path $root 'artifacts'
 $zipPath      = Join-Path $root "TotalRecall-$Version-$rid.zip"
+$clickOnceZip = Join-Path $root "TotalRecall-$Version-ClickOnce.zip"
 
 Write-Host "TotalRecall release builder" -ForegroundColor Cyan
 Write-Host "  Version       : $Version"
@@ -102,6 +103,65 @@ Compress-Archive -Path "$stagingRoot\*" -DestinationPath $zipPath -CompressionLe
 $zipSize = (Get-Item $zipPath).Length
 $mb      = [math]::Round($zipSize / 1MB, 1)
 Write-Host ""
-Write-Host "Done." -ForegroundColor Green
+Write-Host "Done (portable ZIP)." -ForegroundColor Green
 Write-Host "  ZIP : $zipPath ($mb MB)"
 Write-Host "  Staging tree left at: $stagingRoot"
+
+# --- 6. ClickOnce installer (single setup.exe + manifest) --------------------
+Write-Host ""
+Write-Host "Building ClickOnce installer..." -ForegroundColor Cyan
+$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+if (-not (Test-Path $vswhere)) {
+    Write-Host "  vswhere.exe not found — skipping ClickOnce build (install Visual Studio to enable)." -ForegroundColor Yellow
+    return
+}
+$msbuild = & $vswhere -latest -prerelease -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+if (-not $msbuild) {
+    Write-Host "  MSBuild.exe not found via vswhere — skipping ClickOnce build." -ForegroundColor Yellow
+    return
+}
+Write-Host "  Using MSBuild: $msbuild"
+
+# Pre-publish the MCP server into the location the WinForms csproj globs for.
+$mcpPublishOut = Join-Path $root "TotalRecall.Mcp\bin\$Configuration\net10.0-windows\$rid\publish"
+if (Test-Path $mcpPublishOut) { Remove-Item $mcpPublishOut -Recurse -Force }
+& dotnet publish (Join-Path $root 'TotalRecall.Mcp\TotalRecall.Mcp.csproj') `
+    -c $Configuration -r $rid --self-contained true `
+    -p:PublishSingleFile=false -p:DebugType=none -p:DebugSymbols=false `
+    -o $mcpPublishOut --nologo | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "MCP pre-publish failed" }
+
+# Clean previous ClickOnce output
+$coOutDir = Join-Path $root 'TotalRecall\bin\publish'
+if (Test-Path $coOutDir) { Remove-Item $coOutDir -Recurse -Force }
+
+# Run ClickOnce publish
+$msbuildArgs = @(
+    (Join-Path $root 'TotalRecall\TotalRecall.csproj'),
+    '/t:Publish',
+    "/p:Configuration=$Configuration",
+    '/p:Platform=x64',
+    '/p:PublishProfile=ClickOnceProfile',
+    "/p:ApplicationVersion=$Version.0",
+    '/v:minimal',
+    '/nologo'
+)
+& $msbuild @msbuildArgs
+if ($LASTEXITCODE -ne 0) { throw "ClickOnce publish failed (exit $LASTEXITCODE)" }
+
+if (-not (Test-Path $coOutDir)) {
+    Write-Host "  ClickOnce output not found at $coOutDir" -ForegroundColor Yellow
+    return
+}
+
+# Zip the entire ClickOnce publish folder (setup.exe + .application + Application Files\ + publish.html)
+if (Test-Path $clickOnceZip) { Remove-Item $clickOnceZip -Force }
+Write-Host "Compressing ClickOnce -> $clickOnceZip" -ForegroundColor Yellow
+Compress-Archive -Path "$coOutDir\*" -DestinationPath $clickOnceZip -CompressionLevel Optimal -Force
+
+$coMb = [math]::Round((Get-Item $clickOnceZip).Length / 1MB, 1)
+Write-Host ""
+Write-Host "Done (ClickOnce)." -ForegroundColor Green
+Write-Host "  ZIP    : $clickOnceZip ($coMb MB)"
+Write-Host "  setup  : $coOutDir\setup.exe"
+Write-Host "  manifest: $coOutDir\TotalRecall.application"
