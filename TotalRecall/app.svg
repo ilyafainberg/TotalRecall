@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6350F0"/>
+      <stop offset="1" stop-color="#28C8E6"/>
+    </linearGradient>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFF4B0"/>
+      <stop offset="1" stop-color="#FFD650" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- rounded-square plate -->
+  <rect x="0" y="0" width="256" height="256" rx="56" ry="56" fill="url(#plate)"/>
+
+  <!-- infinity-brain: two loops forming a figure-8 / two hemispheres -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <!-- right hemisphere loop -->
+    <path d="M128 128 C 152 72, 224 72, 224 128 C 224 184, 152 184, 128 128 Z"/>
+    <!-- left hemisphere loop -->
+    <path d="M128 128 C 104 72, 32 72, 32 128 C 32 184, 104 184, 128 128 Z"/>
+  </g>
+
+  <!-- soft spark glow at the crossover -->
+  <circle cx="128" cy="128" r="26" fill="url(#spark)"/>
+  <circle cx="128" cy="128" r="9" fill="#FFF4B0"/>
+</svg>

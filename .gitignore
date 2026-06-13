@@ -1,0 +1,43 @@
+## .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+[Pp]ublish/
+[Rr]elease/
+[Dd]ebug/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.vsidx
+.vs/
+
+## Build artifacts
+artifacts/
+TestResults/
+*.binlog
+project.lock.json
+project.fragment.lock.json
+**/*.received.*
+**/*.received.txt
+
+## Rider / VS Code
+.idea/
+.vscode/
+*.swp
+
+## OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+## Local secrets / sensitive
+*.db
+*.db-shm
+*.db-wal
+*.key
+secrets/
+local.settings.json
+
+## Release ZIPs (built by build-release.ps1; uploaded as GH release assets)
+TotalRecall-*-win-x64.zip
