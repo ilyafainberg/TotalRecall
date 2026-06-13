@@ -23,6 +23,8 @@ $stagingRoot  = Join-Path $root "artifacts\staging\TotalRecall-$Version-$rid"
 $artifactsDir = Join-Path $root 'artifacts'
 $zipPath      = Join-Path $root "TotalRecall-$Version-$rid.zip"
 $clickOnceZip = Join-Path $root "TotalRecall-$Version-ClickOnce.zip"
+$innoSetup    = Join-Path $root "installer\Output\TotalRecall-$Version-Setup.exe"
+$iscc         = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 
 Write-Host "TotalRecall release builder" -ForegroundColor Cyan
 Write-Host "  Version       : $Version"
@@ -165,3 +167,20 @@ Write-Host "Done (ClickOnce)." -ForegroundColor Green
 Write-Host "  ZIP    : $clickOnceZip ($coMb MB)"
 Write-Host "  setup  : $coOutDir\setup.exe"
 Write-Host "  manifest: $coOutDir\TotalRecall.application"
+
+# --- 7. Inno Setup single-EXE installer --------------------------------------
+Write-Host ""
+Write-Host "Building Inno Setup installer..." -ForegroundColor Cyan
+if (-not (Test-Path $iscc)) {
+    Write-Host "  ISCC.exe not found at $iscc - skipping Inno Setup build." -ForegroundColor Yellow
+    Write-Host "  Install via: winget install JRSoftware.InnoSetup" -ForegroundColor Yellow
+    return
+}
+if (Test-Path $innoSetup) { Remove-Item $innoSetup -Force }
+& $iscc /Qp (Join-Path $root 'installer\TotalRecall.iss') "/DMyAppVersion=$Version" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "ISCC failed (exit $LASTEXITCODE)" }
+if (-not (Test-Path $innoSetup)) { throw "Inno Setup output not found at $innoSetup" }
+$inMb = [math]::Round((Get-Item $innoSetup).Length / 1MB, 1)
+Write-Host ""
+Write-Host "Done (Inno Setup)." -ForegroundColor Green
+Write-Host "  setup.exe : $innoSetup ($inMb MB)"

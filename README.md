@@ -27,29 +27,39 @@ The vision is a personal, private "computer memory" — Microsoft Recall, but op
 
 ## Install
 
-There are two ways to install TotalRecall — pick whichever you prefer:
+Three install options — pick whichever you prefer:
 
-### Option 1 — ClickOnce installer (recommended)
+### Option 1 — Inno Setup installer 🟢 *recommended*
 
-The OneClick installer is the easiest path. No admin rights, no UAC prompt, automatic Start Menu shortcut, per-user install.
+A single `setup.exe`, no admin/UAC, per-user install with a proper Add/Remove Programs entry.
 
-1. Download **`TotalRecall-1.0.0-ClickOnce.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
-2. Extract the ZIP somewhere temporary (e.g. Downloads is fine — only `setup.exe` matters after install).
-3. Double-click **`setup.exe`**.
-4. Windows SmartScreen will say *"Windows protected your PC"* because this build isn't Authenticode-signed yet — click **More info → Run anyway**.
-5. The app installs into `%LOCALAPPDATA%\Apps\2.0\…\` and a Start Menu shortcut is created. Launch *TotalRecall* from the Start Menu.
+1. Download **`TotalRecall-1.0.0-Setup.exe`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
+2. Double-click it.
+3. Windows SmartScreen will say *"Windows protected your PC"* because this build isn't Authenticode-signed yet — click **More info → Run anyway**.
+4. Pick install folder (default `%LOCALAPPDATA%\Programs\TotalRecall\`) and optional shortcuts (Start Menu / desktop / *Start in tray on Windows sign-in*). Click **Install**.
+5. Launch *TotalRecall* from the Start Menu (or check **Launch TotalRecall** on the final wizard page).
 
-The MCP server (`TotalRecall.Mcp.exe`) is bundled inside the install. To find its current absolute path (it's hash-based and changes between updates), launch TotalRecall and check the activity log on the Capture tab — the path is printed at startup.
+The MCP server (`TotalRecall.Mcp.exe`) ships next to the main app in `<install dir>\McpServer\`.
 
-### Option 2 — Portable ZIP
+### Option 2 — ClickOnce installer
 
-If you prefer to control where the app lives (e.g. on a USB stick or under `C:\Tools\`), grab the portable ZIP — no install, no Start Menu entry.
+Per-user install with automatic updates from the GitHub release (the app checks at launch).
 
-1. Download **`TotalRecall-1.0.0-win-x64.zip`** from the same release page.
+1. Download **`TotalRecall-1.0.0-ClickOnce.zip`**.
+2. Extract anywhere temporary, double-click `setup.exe`. *More info → Run anyway* on the SmartScreen warning.
+3. The app installs into `%LOCALAPPDATA%\Apps\2.0\…\` and a Start Menu shortcut is created.
+
+The MCP path is hash-based and changes between updates; launch TotalRecall and check the activity log on the Capture tab — the path is printed at startup.
+
+### Option 3 — Portable ZIP
+
+If you prefer to control where the app lives (e.g. on a USB stick or under `C:\Tools\`), grab the portable ZIP — no install, no Start Menu entry, no Add/Remove Programs entry.
+
+1. Download **`TotalRecall-1.0.0-win-x64.zip`**.
 2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall\`). Don't run from Downloads — the MCP path you wire into your AI agent must be permanent.
 3. Run `TotalRecall\TotalRecall.exe`.
 
-The release ZIP includes **both** the desktop app and the MCP server side by side:
+The portable ZIP layout:
 
 ```
 TotalRecall-1.0.0-win-x64\
@@ -62,13 +72,15 @@ TotalRecall-1.0.0-win-x64\
 └─ LICENSE
 ```
 
-### First-run setup (either option)
+### First-run setup (any option)
 
 1. On the **Settings** tab, pick an encryption mode (default is **Windows account** — DPAPI-encrypted, silent unlock) and a capture interval (default 10 s). Click **Save**.
 2. On the **Capture** tab, click **Start**.
 3. (Optional) Wire `TotalRecall.Mcp.exe` into your AI agent — see [MCP server setup](#mcp-server-setup) for Microsoft Scout, GitHub Copilot CLI, and Claude Desktop wiring.
 
-Both packages are **self-contained** — no separate .NET runtime installation required.
+All three packages are **self-contained** — no separate .NET runtime installation required.
+
+> **About the SmartScreen warning:** until the binaries are Authenticode-signed, Windows SmartScreen will warn on first launch. Microsoft Store (MSIX) submission is in progress; once approved, that channel will install without any warning.
 
 ### Command-line flags
 

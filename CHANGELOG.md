@@ -28,12 +28,13 @@ First public release. A local, searchable, encrypted index of everything that ha
 
 ## Install
 
-Two install options — pick whichever you prefer:
+Three install options — pick whichever you prefer:
 
-- **OneClick installer** (`TotalRecall-1.0.0-ClickOnce.zip`, ~115 MB): extract, double-click `setup.exe`. Per-user install, Start Menu shortcut, no admin needed. Click *More info → Run anyway* on the SmartScreen warning (build isn't Authenticode-signed yet).
-- **Portable ZIP** (`TotalRecall-1.0.0-win-x64.zip`, ~116 MB): extract somewhere stable (e.g. `C:\Tools\TotalRecall\`), run `TotalRecall\TotalRecall.exe`.
+- **🟢 Inno Setup installer** *(recommended)* — `TotalRecall-1.0.0-Setup.exe` (~80 MB). Single-file, per-user install, no admin/UAC.
+- **ClickOnce installer** — `TotalRecall-1.0.0-ClickOnce.zip` (~115 MB). Extract, double-click `setup.exe`. Auto-updates from the release.
+- **Portable ZIP** — `TotalRecall-1.0.0-win-x64.zip` (~116 MB). Extract anywhere stable, run `TotalRecall\TotalRecall.exe`.
 
-Both packages are **self-contained** — no .NET runtime required. The MCP server is bundled in both.
+All three are **self-contained** (no .NET runtime needed) and include the MCP server. The binaries aren't Authenticode-signed yet, so SmartScreen will warn on first launch — *More info → Run anyway*. Microsoft Store (MSIX) submission is in progress; once approved, that channel will install without warning.
 
 ### First-run setup
 
