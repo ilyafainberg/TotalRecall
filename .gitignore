@@ -39,5 +39,7 @@ Desktop.ini
 secrets/
 local.settings.json
 
-## Release ZIPs (built by build-release.ps1; uploaded as GH release assets)
+## Release artifacts (built locally; uploaded as GH release assets)
 TotalRecall-*.zip
+installer/Output/
+installer/*.exe
