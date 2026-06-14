@@ -81,6 +81,172 @@ If neither `--capture-on` nor `--capture-off` is passed, TotalRecall restores wh
 
 ---
 
+## MCP server setup
+
+The MCP server is a separate console executable that speaks JSON-RPC over stdio. It opens the same SQLite database the UI writes to and exposes 6 tools for an AI agent to query your activity history.
+
+### Tools exposed
+
+| Tool | Purpose |
+|------|---------|
+| `search_recall(query, app?, from?, to?, limit?)` | FTS5 search; returns windows with highlighted snippet |
+| `get_window(window_id, include_image?)` | Full window row including OCR text; optional base64 JPEG |
+| `list_snapshots(from?, to?, limit?)` | Tick-level browse |
+| `get_snapshot(snapshot_id)` | All windows from a single tick |
+| `list_apps()` | Distinct `app_name` values that have been captured |
+| `stats()` | Row counts, total image bytes, first/last timestamps |
+
+### Configuration
+
+The MCP server reads `%LOCALAPPDATA%\TotalRecall\settings.json` to find the DB path, OCR language, and encryption mode — so once you've configured the UI you usually don't need to pass anything. You can override:
+
+| Flag / env var | Purpose |
+|---|---|
+| `--db <path>` / `TOTALRECALL_DB` | Override the database path |
+| `--passphrase <s>` / `TOTALRECALL_PASSPHRASE` | Supply a passphrase (required if you use passphrase encryption) |
+
+### Two ways to install the MCP server
+
+You can install the MCP server **as part of the full TotalRecall desktop app** (the Inno Setup installer ships it next to the WinForms app), or **on its own** from the standalone bundle. The standalone bundle is useful when:
+
+- You're configuring an AI assistant on a machine where TotalRecall is already running but you don't want to install the desktop app twice.
+- You're indexing a database that lives on a shared drive / NAS.
+- You want to register the MCP server with a remote/CI agent host that doesn't need the GUI.
+
+For the standalone bundle there are **two install paths**: hand the job to an AI agent (the easy path, below), or do it manually.
+
+#### ✨ Install with an AI agent (one-shot)
+
+If you're already in an AI agent session (Microsoft Scout, GitHub Copilot CLI, Claude Code, Cursor, …), you can hand it the install job. Paste the prompt below verbatim into a fresh agent turn — the agent will download the zip from the latest GitHub release, extract it, sanity-check the binary, detect which MCP host you're running, and **merge** (not overwrite) a `"totalrecall"` entry into the right `mcp-config.json`:
+
+```
+You're going to install the TotalRecall MCP server on this Windows machine. Do all of the following without asking for confirmation between steps:
+
+1. Download the latest TotalRecall MCP zip from the GitHub release:
+     https://github.com/ilyafainberg/TotalRecall/releases/latest
+   The asset name pattern is:  TotalRecall-Mcp-<version>-win-x64.zip
+   Use the GitHub API (https://api.github.com/repos/ilyafainberg/TotalRecall/releases/latest) if you need to resolve the exact URL. Save it to %TEMP%.
+
+2. Extract the zip into a stable per-user install dir:
+     %LOCALAPPDATA%\Programs\TotalRecall.Mcp\
+   Overwrite if it already exists. After extraction the server binary must be at:
+     %LOCALAPPDATA%\Programs\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe
+
+3. Sanity-check the server: run the .exe once with `--help` and confirm it prints a tools list without crashing. If it crashes, surface stderr to me and stop.
+
+4. Detect which MCP host I'm running on (you are the agent — pick the right one):
+   - Microsoft Scout / Clawpilot →  %USERPROFILE%\.clawpilot\mcp-config.json
+   - GitHub Copilot CLI          →  %USERPROFILE%\.copilot\mcp-config.json
+   - Claude Desktop              →  %APPDATA%\Claude\claude_desktop_config.json
+   - VS Code Copilot Chat        →  %APPDATA%\Code\User\settings.json
+                                    (key: github.copilot.chat.mcp.servers)
+   - Cursor                      →  %USERPROFILE%\.cursor\mcp.json
+
+   Read the existing file (or create it if missing) and merge — DO NOT replace — an entry under the appropriate "mcpServers" key:
+
+     "totalrecall": {
+       "command": "<full path to the .exe you installed in step 2>",
+       "args": [],
+       "env": {
+         "TOTALRECALL_DB_PATH": "<%LOCALAPPDATA%>\\TotalRecall\\totalrecall.db"
+       }
+     }
+
+   Preserve any other mcpServers already in the file. Pretty-print the JSON.
+
+5. Tell me which host you configured, the absolute path to the installed .exe, whether the TotalRecall DB at TOTALRECALL_DB_PATH already exists, and that I need to restart the host before the server shows up.
+
+If anything goes wrong, stop and tell me what failed.
+```
+
+**Why it's safe to paste:**
+
+- Only writes to per-user dirs (`%LOCALAPPDATA%`, `%USERPROFILE%`, `%APPDATA%`) — no admin rights, no system-wide changes.
+- Merges into existing `mcp-config.json` files, doesn't overwrite.
+- Self-contained .NET 10 binary, no runtime install.
+- Server is read-only by default; writes are gated by `TOTALRECALL_READONLY=0`.
+
+The bundle's own `INSTALL-WITH-AGENT.md` ships the same prompt for sharing.
+
+#### Manual install of the standalone bundle
+
+1. Download **`TotalRecall-Mcp-1.0.0-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
+2. Extract to a **stable** path (e.g. `C:\Tools\TotalRecall.Mcp\`). The .exe must end up at `C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe`.
+3. Smoke-test the binary:
+   ```powershell
+   C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe --help
+   ```
+4. Open the bundle's own **`README.md`** for copy-paste config snippets for each host (Microsoft Scout, GitHub Copilot CLI, Claude Desktop, VS Code, Cursor) — or use the templates in [Registering with an AI assistant](#registering-with-an-ai-assistant) below.
+
+### Registering with an AI assistant
+
+#### Microsoft Scout / GitHub Copilot CLI
+
+Edit `%USERPROFILE%\.copilot\mcp-config.json`:
+
+```jsonc
+{
+  "mcpServers": {
+    "TotalRecall": {
+      "type": "local",
+      "command": "C:\\Tools\\TotalRecall\\TotalRecall.Mcp\\TotalRecall.Mcp.exe",
+      "args": [],
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+Restart the agent for the new server to be picked up.
+
+#### Claude Desktop
+
+Edit `%APPDATA%\Claude\claude_desktop_config.json`:
+
+```jsonc
+{
+  "mcpServers": {
+    "totalrecall": {
+      "command": "C:\\Tools\\TotalRecall\\TotalRecall.Mcp\\TotalRecall.Mcp.exe",
+      "args": [],
+      "env": {
+        // Only needed if you chose passphrase encryption:
+        // "TOTALRECALL_PASSPHRASE": "your phrase"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop.
+
+#### Any other MCP-aware client
+
+Spawn `TotalRecall.Mcp.exe` with stdio. Standard MCP `initialize` / `tools/list` / `tools/call` JSON-RPC over stdin/stdout.
+
+### Once registered, you can ask things like
+
+- *"Search my recall for any window mentioning 'invoice' in the last 3 hours."*
+- *"What apps did I have open this morning?"*
+- *"Find the window where I was reading about Power Platform pricing and summarize the text."*
+- *"Show me the screenshot from window 4218."* (the agent will call `get_window` with `include_image: true`)
+
+The agent only ever sees the rows it explicitly queries — it cannot stream or exfiltrate the whole DB.
+
+---
+
+## Roadmap / what's missing
+
+- App allow-list / block-list (e.g. always skip 1Password, banking sites, etc.)
+- Vector embedding of OCR text for semantic search alongside FTS5
+- A "redact" pass on capture that masks anything that looks like a credential field
+- Image-content embedding (CLIP / SigLIP) so the agent can do *visual* search ("the chart with the red bar")
+- Export / share-out tools (encrypted snapshot archive, redacted JSON export)
+
+PRs welcome.
+
+---
+
 ## On-device, open source, no AI in the loop
 
 This is a deliberate design choice. The capture pipeline does **not** call any cloud service. Specifically:
@@ -245,172 +411,6 @@ TotalRecall.exe --minimized
 ### Adding OCR languages
 
 Drop additional `.traineddata` files from <https://github.com/tesseract-ocr/tessdata_fast> into `TotalRecall.Core\tessdata\` and rebuild. Then set the language in Settings (e.g. `eng+fra` for English + French).
-
----
-
-## MCP server setup
-
-The MCP server is a separate console executable that speaks JSON-RPC over stdio. It opens the same SQLite database the UI writes to and exposes 6 tools for an AI agent to query your activity history.
-
-### Tools exposed
-
-| Tool | Purpose |
-|------|---------|
-| `search_recall(query, app?, from?, to?, limit?)` | FTS5 search; returns windows with highlighted snippet |
-| `get_window(window_id, include_image?)` | Full window row including OCR text; optional base64 JPEG |
-| `list_snapshots(from?, to?, limit?)` | Tick-level browse |
-| `get_snapshot(snapshot_id)` | All windows from a single tick |
-| `list_apps()` | Distinct `app_name` values that have been captured |
-| `stats()` | Row counts, total image bytes, first/last timestamps |
-
-### Configuration
-
-The MCP server reads `%LOCALAPPDATA%\TotalRecall\settings.json` to find the DB path, OCR language, and encryption mode — so once you've configured the UI you usually don't need to pass anything. You can override:
-
-| Flag / env var | Purpose |
-|---|---|
-| `--db <path>` / `TOTALRECALL_DB` | Override the database path |
-| `--passphrase <s>` / `TOTALRECALL_PASSPHRASE` | Supply a passphrase (required if you use passphrase encryption) |
-
-### Two ways to install the MCP server
-
-You can install the MCP server **as part of the full TotalRecall desktop app** (the Inno Setup installer ships it next to the WinForms app), or **on its own** from the standalone bundle. The standalone bundle is useful when:
-
-- You're configuring an AI assistant on a machine where TotalRecall is already running but you don't want to install the desktop app twice.
-- You're indexing a database that lives on a shared drive / NAS.
-- You want to register the MCP server with a remote/CI agent host that doesn't need the GUI.
-
-For the standalone bundle there are **two install paths**: hand the job to an AI agent (the easy path, below), or do it manually.
-
-#### ✨ Install with an AI agent (one-shot)
-
-If you're already in an AI agent session (Microsoft Scout, GitHub Copilot CLI, Claude Code, Cursor, …), you can hand it the install job. Paste the prompt below verbatim into a fresh agent turn — the agent will download the zip from the latest GitHub release, extract it, sanity-check the binary, detect which MCP host you're running, and **merge** (not overwrite) a `"totalrecall"` entry into the right `mcp-config.json`:
-
-```
-You're going to install the TotalRecall MCP server on this Windows machine. Do all of the following without asking for confirmation between steps:
-
-1. Download the latest TotalRecall MCP zip from the GitHub release:
-     https://github.com/ilyafainberg/TotalRecall/releases/latest
-   The asset name pattern is:  TotalRecall-Mcp-<version>-win-x64.zip
-   Use the GitHub API (https://api.github.com/repos/ilyafainberg/TotalRecall/releases/latest) if you need to resolve the exact URL. Save it to %TEMP%.
-
-2. Extract the zip into a stable per-user install dir:
-     %LOCALAPPDATA%\Programs\TotalRecall.Mcp\
-   Overwrite if it already exists. After extraction the server binary must be at:
-     %LOCALAPPDATA%\Programs\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe
-
-3. Sanity-check the server: run the .exe once with `--help` and confirm it prints a tools list without crashing. If it crashes, surface stderr to me and stop.
-
-4. Detect which MCP host I'm running on (you are the agent — pick the right one):
-   - Microsoft Scout / Clawpilot →  %USERPROFILE%\.clawpilot\mcp-config.json
-   - GitHub Copilot CLI          →  %USERPROFILE%\.copilot\mcp-config.json
-   - Claude Desktop              →  %APPDATA%\Claude\claude_desktop_config.json
-   - VS Code Copilot Chat        →  %APPDATA%\Code\User\settings.json
-                                    (key: github.copilot.chat.mcp.servers)
-   - Cursor                      →  %USERPROFILE%\.cursor\mcp.json
-
-   Read the existing file (or create it if missing) and merge — DO NOT replace — an entry under the appropriate "mcpServers" key:
-
-     "totalrecall": {
-       "command": "<full path to the .exe you installed in step 2>",
-       "args": [],
-       "env": {
-         "TOTALRECALL_DB_PATH": "<%LOCALAPPDATA%>\\TotalRecall\\totalrecall.db"
-       }
-     }
-
-   Preserve any other mcpServers already in the file. Pretty-print the JSON.
-
-5. Tell me which host you configured, the absolute path to the installed .exe, whether the TotalRecall DB at TOTALRECALL_DB_PATH already exists, and that I need to restart the host before the server shows up.
-
-If anything goes wrong, stop and tell me what failed.
-```
-
-**Why it's safe to paste:**
-
-- Only writes to per-user dirs (`%LOCALAPPDATA%`, `%USERPROFILE%`, `%APPDATA%`) — no admin rights, no system-wide changes.
-- Merges into existing `mcp-config.json` files, doesn't overwrite.
-- Self-contained .NET 10 binary, no runtime install.
-- Server is read-only by default; writes are gated by `TOTALRECALL_READONLY=0`.
-
-The bundle's own `INSTALL-WITH-AGENT.md` ships the same prompt for sharing.
-
-#### Manual install of the standalone bundle
-
-1. Download **`TotalRecall-Mcp-1.0.0-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
-2. Extract to a **stable** path (e.g. `C:\Tools\TotalRecall.Mcp\`). The .exe must end up at `C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe`.
-3. Smoke-test the binary:
-   ```powershell
-   C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe --help
-   ```
-4. Open the bundle's own **`README.md`** for copy-paste config snippets for each host (Microsoft Scout, GitHub Copilot CLI, Claude Desktop, VS Code, Cursor) — or use the templates in [Registering with an AI assistant](#registering-with-an-ai-assistant) below.
-
-### Registering with an AI assistant
-
-#### Microsoft Scout / GitHub Copilot CLI
-
-Edit `%USERPROFILE%\.copilot\mcp-config.json`:
-
-```jsonc
-{
-  "mcpServers": {
-    "TotalRecall": {
-      "type": "local",
-      "command": "C:\\Tools\\TotalRecall\\TotalRecall.Mcp\\TotalRecall.Mcp.exe",
-      "args": [],
-      "tools": ["*"]
-    }
-  }
-}
-```
-
-Restart the agent for the new server to be picked up.
-
-#### Claude Desktop
-
-Edit `%APPDATA%\Claude\claude_desktop_config.json`:
-
-```jsonc
-{
-  "mcpServers": {
-    "totalrecall": {
-      "command": "C:\\Tools\\TotalRecall\\TotalRecall.Mcp\\TotalRecall.Mcp.exe",
-      "args": [],
-      "env": {
-        // Only needed if you chose passphrase encryption:
-        // "TOTALRECALL_PASSPHRASE": "your phrase"
-      }
-    }
-  }
-}
-```
-
-Restart Claude Desktop.
-
-#### Any other MCP-aware client
-
-Spawn `TotalRecall.Mcp.exe` with stdio. Standard MCP `initialize` / `tools/list` / `tools/call` JSON-RPC over stdin/stdout.
-
-### Once registered, you can ask things like
-
-- *"Search my recall for any window mentioning 'invoice' in the last 3 hours."*
-- *"What apps did I have open this morning?"*
-- *"Find the window where I was reading about Power Platform pricing and summarize the text."*
-- *"Show me the screenshot from window 4218."* (the agent will call `get_window` with `include_image: true`)
-
-The agent only ever sees the rows it explicitly queries — it cannot stream or exfiltrate the whole DB.
-
----
-
-## Roadmap / what's missing
-
-- App allow-list / block-list (e.g. always skip 1Password, banking sites, etc.)
-- Vector embedding of OCR text for semantic search alongside FTS5
-- A "redact" pass on capture that masks anything that looks like a credential field
-- Image-content embedding (CLIP / SigLIP) so the agent can do *visual* search ("the chart with the red bar")
-- Export / share-out tools (encrypted snapshot archive, redacted JSON export)
-
-PRs welcome.
 
 ---
 
