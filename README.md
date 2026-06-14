@@ -274,25 +274,17 @@ The MCP server reads `%LOCALAPPDATA%\TotalRecall\settings.json` to find the DB p
 
 ### Two ways to install the MCP server
 
-You can install the MCP server **as part of the full TotalRecall desktop app** (options 1–4 above all ship it), or **on its own** from the standalone bundle (option 5). The standalone bundle is useful when:
+You can install the MCP server **as part of the full TotalRecall desktop app** (the Inno Setup installer ships it next to the WinForms app), or **on its own** from the standalone bundle. The standalone bundle is useful when:
 
 - You're configuring an AI assistant on a machine where TotalRecall is already running but you don't want to install the desktop app twice.
 - You're indexing a database that lives on a shared drive / NAS.
 - You want to register the MCP server with a remote/CI agent host that doesn't need the GUI.
 
-#### Manual install of the standalone bundle
+For the standalone bundle there are **two install paths**: hand the job to an AI agent (the easy path, below), or do it manually.
 
-1. Download **`TotalRecall-Mcp-1.0.0-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
-2. Extract to a **stable** path (e.g. `C:\Tools\TotalRecall.Mcp\`). The .exe must end up at `C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe`.
-3. Smoke-test the binary:
-   ```powershell
-   C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe --help
-   ```
-4. Open the bundle's own **`README.md`** for copy-paste config snippets for each host (Microsoft Scout, GitHub Copilot CLI, Claude Desktop, VS Code, Cursor) — or use the templates in [Registering with an AI assistant](#registering-with-an-ai-assistant) below.
+#### ✨ Install with an AI agent (one-shot)
 
-#### One-shot agent install
-
-If you're already in an AI agent session (Microsoft Scout, GitHub Copilot CLI, Claude Code, Cursor, …), you can hand it the install job. Paste the prompt below verbatim into a fresh agent turn — the agent will download the zip, extract it, sanity-check the binary, and merge a `"totalrecall"` entry into the right `mcp-config.json` for whichever host you're running:
+If you're already in an AI agent session (Microsoft Scout, GitHub Copilot CLI, Claude Code, Cursor, …), you can hand it the install job. Paste the prompt below verbatim into a fresh agent turn — the agent will download the zip from the latest GitHub release, extract it, sanity-check the binary, detect which MCP host you're running, and **merge** (not overwrite) a `"totalrecall"` entry into the right `mcp-config.json`:
 
 ```
 You're going to install the TotalRecall MCP server on this Windows machine. Do all of the following without asking for confirmation between steps:
@@ -334,7 +326,24 @@ You're going to install the TotalRecall MCP server on this Windows machine. Do a
 If anything goes wrong, stop and tell me what failed.
 ```
 
-The bundle's own `INSTALL-WITH-AGENT.md` ships the same prompt and a "Why it's safe to paste" rundown — share that with anyone who wants a second opinion before running it.
+**Why it's safe to paste:**
+
+- Only writes to per-user dirs (`%LOCALAPPDATA%`, `%USERPROFILE%`, `%APPDATA%`) — no admin rights, no system-wide changes.
+- Merges into existing `mcp-config.json` files, doesn't overwrite.
+- Self-contained .NET 10 binary, no runtime install.
+- Server is read-only by default; writes are gated by `TOTALRECALL_READONLY=0`.
+
+The bundle's own `INSTALL-WITH-AGENT.md` ships the same prompt for sharing.
+
+#### Manual install of the standalone bundle
+
+1. Download **`TotalRecall-Mcp-1.0.0-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
+2. Extract to a **stable** path (e.g. `C:\Tools\TotalRecall.Mcp\`). The .exe must end up at `C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe`.
+3. Smoke-test the binary:
+   ```powershell
+   C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe --help
+   ```
+4. Open the bundle's own **`README.md`** for copy-paste config snippets for each host (Microsoft Scout, GitHub Copilot CLI, Claude Desktop, VS Code, Cursor) — or use the templates in [Registering with an AI assistant](#registering-with-an-ai-assistant) below.
 
 ### Registering with an AI assistant
 
