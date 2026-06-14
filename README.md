@@ -33,7 +33,7 @@ Two install options for the full desktop app, plus a third for just the MCP serv
 
 A single `setup.exe`, no admin/UAC, per-user install with a proper Add/Remove Programs entry.
 
-1. Download **`TotalRecall-1.0.0-Setup.exe`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
+1. Download **`TotalRecall-1.0.1-Setup.exe`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
 2. Double-click it.
 3. Windows SmartScreen will say *"Windows protected your PC"* because this build isn't Authenticode-signed yet — click **More info → Run anyway**.
 4. Pick install folder (default `%LOCALAPPDATA%\Programs\TotalRecall\`) and optional shortcuts (Start Menu / desktop / *Start in tray on Windows sign-in*). Click **Install**.
@@ -45,14 +45,14 @@ The MCP server (`TotalRecall.Mcp.exe`) ships next to the main app in `<install d
 
 If you prefer to control where the app lives (e.g. on a USB stick or under `C:\Tools\`), grab the portable ZIP — no install, no Start Menu entry, no Add/Remove Programs entry. Self-contained, no .NET runtime required.
 
-1. Download **`TotalRecall-1.0.0-Portable-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
+1. Download **`TotalRecall-1.0.1-Portable-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
 2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall\`). Don't run from Downloads — the MCP path you wire into your AI agent must be permanent.
 3. Run `TotalRecall\TotalRecall.exe`.
 
 The portable ZIP layout:
 
 ```
-TotalRecall-1.0.0-Portable-win-x64\
+TotalRecall-1.0.1-Portable-win-x64\
 ├─ TotalRecall\
 │  └─ TotalRecall.exe          ← the desktop app
 ├─ TotalRecall.Mcp\
@@ -66,7 +66,7 @@ TotalRecall-1.0.0-Portable-win-x64\
 
 Just want the AI-agent integration and not the capture UI? Grab the standalone MCP bundle. Useful if you already have a TotalRecall database on the machine (from a previous install, or from another user) and only need the server to expose it.
 
-1. Download **`TotalRecall-Mcp-1.0.0-win-x64.zip`** from the release page.
+1. Download **`TotalRecall-Mcp-1.0.1-win-x64.zip`** from the release page.
 2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall.Mcp\`).
 3. Wire it into your MCP host — see the bundle's own `README.md` for snippets covering Microsoft Scout, GitHub Copilot CLI, Claude Desktop, VS Code Copilot Chat, and Cursor.
 
@@ -185,7 +185,7 @@ The bundle's own `INSTALL-WITH-AGENT.md` ships the same prompt for sharing.
 
 #### Manual install of the standalone bundle
 
-1. Download **`TotalRecall-Mcp-1.0.0-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
+1. Download **`TotalRecall-Mcp-1.0.1-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
 2. Extract to a **stable** path (e.g. `C:\Tools\TotalRecall.Mcp\`). The .exe must end up at `C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe`.
 3. Smoke-test the binary:
    ```powershell

@@ -21,15 +21,36 @@ using static TotalRecall.NativeMethods;
 
 namespace TotalRecall;
 
+/// <summary>
+/// Captures a single window's pixels via <c>PrintWindow(PW_RENDERFULLCONTENT)</c>.
+/// </summary>
+/// <remarks>
+/// <para>Why <c>PrintWindow</c> + <c>PW_RENDERFULLCONTENT</c> instead of a desktop blit?</para>
+/// <list type="bullet">
+///   <item>Captures occluded / off-screen / partially covered windows.</item>
+///   <item>No "minimised app shows the last frame" stale-frame artefact.</item>
+///   <item>Works for DirectComposition surfaces (WPF, WinUI, Edge, modern UWP) where
+///     plain <c>BitBlt</c> would return black.</item>
+/// </list>
+/// <para>Known limitations:</para>
+/// <list type="bullet">
+///   <item>Hardware-accelerated video / DRM-protected surfaces (Netflix, HDCP-protected
+///     content) may render as black; not much we can do without admin/desktop-duplication.</item>
+///   <item>Some legacy apps don't implement <c>WM_PRINT</c> cleanly and return a partial
+///     frame; we fall back to <c>PrintWindow(0)</c> in that case before giving up.</item>
+/// </list>
+/// </remarks>
 public static class ScreenshotCapture
 {
     /// <summary>
-    /// Captures a window using PrintWindow with PW_RENDERFULLCONTENT (works for most modern apps,
-    /// including those using DirectComposition). Returns null on failure.
+    /// Captures the window referenced by <paramref name="hWnd"/>. Returns null when the
+    /// window has no valid bounds or the capture call fails entirely (caller logs and continues).
     /// </summary>
     public static Bitmap? CaptureWindow(IntPtr hWnd)
     {
         // Prefer DWM extended frame bounds (gives the visual rectangle, not the legacy frame).
+        // On Win10/11, GetWindowRect returns the larger "include drop-shadow / invisible
+        // resize border" frame; DWMWA_EXTENDED_FRAME_BOUNDS is the visually-tight rectangle.
         RECT rect;
         if (DwmGetWindowAttribute(hWnd, DWMWA_EXTENDED_FRAME_BOUNDS, out rect, Marshal.SizeOf<RECT>()) != 0)
         {
@@ -50,7 +71,7 @@ public static class ScreenshotCapture
                 bool ok = PrintWindow(hWnd, hdc, PW_RENDERFULLCONTENT);
                 if (!ok)
                 {
-                    // Fallback: try without flag
+                    // Fallback: some legacy WM_PRINT implementations reject the flag.
                     if (!PrintWindow(hWnd, hdc, 0))
                     {
                         return null;

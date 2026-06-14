@@ -23,6 +23,28 @@ using System.Windows.Forms;
 
 namespace TotalRecall;
 
+/// <summary>
+/// The main browsing surface: search, results list, screenshot preview (zoom + pan),
+/// and full OCR text in a collapsible/resizable side panel.
+/// </summary>
+/// <remarks>
+/// <para>Layout (left → right, designed in <c>BrowsePanel.Designer.cs</c>):</para>
+/// <list type="number">
+///   <item><b>Results panel</b> — ListView with When | Title | Snippet | App columns,
+///     fed by <see cref="Database.Search"/>. Filters: free-text search + app dropdown +
+///     a sliding-window time filter (today, 24h, 7d, all).</item>
+///   <item><b>Preview panel</b> — <see cref="ZoomablePicturePanel"/> with a zoom slider
+///     and the hand-cursor pan implementation. See <see cref="sliderToPercent"/> for
+///     the zoom step table.</item>
+///   <item><b>Text panel</b> — full OCR text for the selected row in a multiline
+///     TextBox. Collapsible via the header chevron button; the splitter distance is
+///     remembered in <see cref="lastInnerSplitterDistance"/> so re-expanding restores
+///     the user's chosen width.</item>
+/// </list>
+/// <para><b>Keyboard shortcuts</b> are routed through <see cref="TryHandleShortcut"/>
+/// from <see cref="MainForm.ProcessCmdKey"/>. That keeps the single source of truth
+/// for shortcut routing in <see cref="MainForm"/> and avoids double-invokes.</para>
+/// </remarks>
 public partial class BrowsePanel : UserControl
 {
     private Database? db;

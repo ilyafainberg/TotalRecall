@@ -14,6 +14,12 @@
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <Version>1.0.1</Version>
+    <FileVersion>1.0.1.0</FileVersion>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <Company>Ilya Fainberg</Company>
+    <Product>TotalRecall</Product>
+    <Copyright>Copyright (C) 2026 Ilya Fainberg</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

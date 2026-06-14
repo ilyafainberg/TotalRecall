@@ -23,11 +23,34 @@ using System.Threading.Tasks;
 
 namespace TotalRecall;
 
+/// <summary>
+/// The capture loop's "do one tick" entry point. Enumerates windows, takes screenshots,
+/// runs OCR, and atomically inserts the result as one snapshot + N window rows.
+/// </summary>
+/// <remarks>
+/// <para>One tick (<see cref="CaptureOnceAsync"/>) does:</para>
+/// <list type="number">
+///   <item><see cref="WindowEnumerator"/> lists eligible windows.</item>
+///   <item>User filters apply: foreground-only, app exclusion tokens.</item>
+///   <item>For each window: <see cref="ScreenshotCapture.CaptureWindow"/> grabs pixels,
+///     then <see cref="EnableChangeDetection"/> (if enabled) hashes a 32×18 pixel grid
+///     against the previous tick and skips the OCR + JPEG cost when unchanged.</item>
+///   <item>OCR runs on the original (lossless) bitmap, then JPEG is encoded from the
+///     same source.</item>
+///   <item>One DB transaction inserts the parent snapshot row + all child window rows,
+///     so partial failures never leave dangling orphans.</item>
+/// </list>
+/// <para>This class is intentionally stateless w.r.t. settings — it takes a
+/// <see cref="settingsProvider"/> lambda so the next tick automatically picks up any
+/// changes the user made in the Settings panel without needing to be re-created.</para>
+/// </remarks>
 public sealed class SnapshotService
 {
     private readonly OcrService ocr;
     private readonly Database db;
     private readonly Func<AppSettings> settingsProvider;
+
+    /// <summary>Visual fingerprint of the last seen frame per window — drives change detection.</summary>
     private readonly Dictionary<string, ulong> lastWindowHashes = new(StringComparer.Ordinal);
 
     public SnapshotService(OcrService ocr, Database db, Func<AppSettings> settingsProvider)
@@ -37,6 +60,11 @@ public sealed class SnapshotService
         this.settingsProvider = settingsProvider;
     }
 
+    /// <summary>
+    /// Tick result. <see cref="SnapshotId"/> is 0 when every window was skipped
+    /// (change detection said nothing new) — no snapshot row is written in that case
+    /// so we don't bloat the DB with empty ticks.
+    /// </summary>
     public sealed record SnapshotResult(long SnapshotId, int WindowCount, int StoredWindowCount, int SkippedUnchanged, long ElapsedMs, long ImageBytes);
 
     public async Task<SnapshotResult> CaptureOnceAsync(CancellationToken ct)
@@ -161,9 +189,19 @@ public sealed class SnapshotService
     private static bool Contains(string value, string token) =>
         value.Contains(token, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Builds a per-window identity key for the change-detection hash table.
+    /// Same window resized or moved counts as a different surface (different OCR
+    /// expected), so bounds are part of the key, not just pid+title.
+    /// </summary>
     private static string BuildWindowKey(EnumeratedWindow w) =>
         $"{w.ProcessId}|{w.Title}|{w.Bounds.Left},{w.Bounds.Top},{w.Bounds.Width},{w.Bounds.Height}";
 
+    /// <summary>
+    /// Cheap perceptual hash over a 32×18 grid of pixel samples. Two visually-identical
+    /// frames will hash to the same value; two frames that differ even by a single text
+    /// caret or a cursor blink will not. Uses FNV-1a 64 — fast, deterministic, no allocs.
+    /// </summary>
     private static unsafe ulong ComputeVisualHash(Bitmap bmp)
     {
         const int sampleColumns = 32;

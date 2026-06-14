@@ -24,12 +24,12 @@ partial class MainForm
         headerPanel = new Panel();
         menuBtn = new Button();
         quitBtn = new Button();
-        capDotLbl = new Label();
-        capStateLbl = new Label();
-        capInfoLbl = new Label();
-        capLastLbl = new Label();
         capStartBtn = new Button();
         capStopBtn = new Button();
+        capLastLbl = new Label();
+        capInfoLbl = new Label();
+        capStateLbl = new Label();
+        capDotLbl = new Label();
         titleLbl = new Label();
         browsePanel = new BrowsePanel();
         statusPanel = new Panel();
@@ -67,7 +67,7 @@ partial class MainForm
         menuBtn.FlatStyle = FlatStyle.Flat;
         menuBtn.Font = new Font("Segoe UI Symbol", 12F);
         menuBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        menuBtn.Location = new Point(1278, 15);
+        menuBtn.Location = new Point(1324, 15);
         menuBtn.Name = "menuBtn";
         menuBtn.Size = new Size(40, 32);
         menuBtn.TabIndex = 2;
@@ -83,58 +83,13 @@ partial class MainForm
         quitBtn.FlatStyle = FlatStyle.Flat;
         quitBtn.Font = new Font("Segoe UI Semibold", 9.5F);
         quitBtn.ForeColor = Color.FromArgb(196, 43, 28);
-        quitBtn.Location = new Point(1324, 15);
+        quitBtn.Location = new Point(1370, 15);
         quitBtn.Name = "quitBtn";
         quitBtn.Padding = new Padding(8, 0, 8, 0);
         quitBtn.Size = new Size(96, 32);
         quitBtn.TabIndex = 3;
         quitBtn.Text = "✕  Quit";
         quitBtn.UseVisualStyleBackColor = false;
-        // 
-        // capDotLbl
-        // 
-        capDotLbl.AutoSize = true;
-        capDotLbl.Font = new Font("Segoe UI Symbol", 14F);
-        capDotLbl.ForeColor = Color.FromArgb(170, 170, 178);
-        capDotLbl.Location = new Point(160, 14);
-        capDotLbl.Name = "capDotLbl";
-        capDotLbl.Size = new Size(28, 25);
-        capDotLbl.TabIndex = 4;
-        capDotLbl.Text = "●";
-        // 
-        // capStateLbl
-        // 
-        capStateLbl.AutoSize = true;
-        capStateLbl.Font = new Font("Segoe UI Semibold", 10.5F);
-        capStateLbl.ForeColor = Color.FromArgb(102, 102, 108);
-        capStateLbl.Location = new Point(184, 17);
-        capStateLbl.Name = "capStateLbl";
-        capStateLbl.Size = new Size(32, 19);
-        capStateLbl.TabIndex = 5;
-        capStateLbl.Text = "Idle";
-        // 
-        // capInfoLbl
-        // 
-        capInfoLbl.AutoSize = true;
-        capInfoLbl.Font = new Font("Segoe UI", 9F);
-        capInfoLbl.ForeColor = Color.FromArgb(102, 102, 108);
-        capInfoLbl.Location = new Point(164, 44);
-        capInfoLbl.Name = "capInfoLbl";
-        capInfoLbl.Size = new Size(19, 15);
-        capInfoLbl.TabIndex = 6;
-        capInfoLbl.Text = "—";
-        // 
-        // capLastLbl
-        // 
-        capLastLbl.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        capLastLbl.Font = new Font("Segoe UI", 9F);
-        capLastLbl.ForeColor = Color.FromArgb(102, 102, 108);
-        capLastLbl.Location = new Point(794, 44);
-        capLastLbl.Name = "capLastLbl";
-        capLastLbl.Size = new Size(280, 19);
-        capLastLbl.TabIndex = 7;
-        capLastLbl.Text = "Last: —";
-        capLastLbl.TextAlign = ContentAlignment.MiddleRight;
         // 
         // capStartBtn
         // 
@@ -145,10 +100,10 @@ partial class MainForm
         capStartBtn.FlatStyle = FlatStyle.Flat;
         capStartBtn.Font = new Font("Segoe UI Semibold", 9.5F);
         capStartBtn.ForeColor = Color.White;
-        capStartBtn.Location = new Point(1086, 15);
+        capStartBtn.Location = new Point(1118, 15);
         capStartBtn.Name = "capStartBtn";
         capStartBtn.Padding = new Padding(8, 0, 8, 0);
-        capStartBtn.Size = new Size(96, 32);
+        capStartBtn.Size = new Size(105, 32);
         capStartBtn.TabIndex = 8;
         capStartBtn.Text = "▶  Start";
         capStartBtn.UseVisualStyleBackColor = false;
@@ -163,13 +118,58 @@ partial class MainForm
         capStopBtn.FlatStyle = FlatStyle.Flat;
         capStopBtn.Font = new Font("Segoe UI Semibold", 9.5F);
         capStopBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        capStopBtn.Location = new Point(1188, 15);
+        capStopBtn.Location = new Point(1229, 15);
         capStopBtn.Name = "capStopBtn";
         capStopBtn.Padding = new Padding(8, 0, 8, 0);
-        capStopBtn.Size = new Size(80, 32);
+        capStopBtn.Size = new Size(89, 32);
         capStopBtn.TabIndex = 9;
         capStopBtn.Text = "■  Stop";
         capStopBtn.UseVisualStyleBackColor = false;
+        // 
+        // capLastLbl
+        // 
+        capLastLbl.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        capLastLbl.Font = new Font("Segoe UI", 9F);
+        capLastLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        capLastLbl.Location = new Point(1118, 50);
+        capLastLbl.Name = "capLastLbl";
+        capLastLbl.Size = new Size(280, 19);
+        capLastLbl.TabIndex = 7;
+        capLastLbl.Text = "Last: —";
+        capLastLbl.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // capInfoLbl
+        // 
+        capInfoLbl.AutoSize = true;
+        capInfoLbl.Font = new Font("Segoe UI", 9F);
+        capInfoLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        capInfoLbl.Location = new Point(164, 44);
+        capInfoLbl.Name = "capInfoLbl";
+        capInfoLbl.Size = new Size(19, 15);
+        capInfoLbl.TabIndex = 6;
+        capInfoLbl.Text = "—";
+        // 
+        // capStateLbl
+        // 
+        capStateLbl.AutoSize = true;
+        capStateLbl.Font = new Font("Segoe UI Semibold", 10.5F);
+        capStateLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        capStateLbl.Location = new Point(184, 17);
+        capStateLbl.Name = "capStateLbl";
+        capStateLbl.Size = new Size(32, 19);
+        capStateLbl.TabIndex = 5;
+        capStateLbl.Text = "Idle";
+        // 
+        // capDotLbl
+        // 
+        capDotLbl.AutoSize = true;
+        capDotLbl.Font = new Font("Segoe UI Symbol", 14F);
+        capDotLbl.ForeColor = Color.FromArgb(170, 170, 178);
+        capDotLbl.Location = new Point(160, 14);
+        capDotLbl.Name = "capDotLbl";
+        capDotLbl.Size = new Size(28, 25);
+        capDotLbl.TabIndex = 4;
+        capDotLbl.Text = "●";
         // 
         // titleLbl
         // 

@@ -17,6 +17,15 @@ using System.Drawing;
 
 namespace TotalRecall;
 
+/// <summary>
+/// Centralised colour + font palette for the WinForms UI. All custom drawing should pull
+/// from this class so a future "dark mode" or accent re-skin only needs to touch one file.
+/// </summary>
+/// <remarks>
+/// Designed to mimic the Fluent 2 / Windows 11 light theme: white "cards" floating on a
+/// soft gray page, with a single accent blue and Segoe UI everywhere. If you add a colour,
+/// add it here — don't hard-code <c>Color.FromArgb(…)</c> in form code.
+/// </remarks>
 internal static class Theme
 {
     // Modern light palette: white cards on a soft light-gray page, Fluent accent.

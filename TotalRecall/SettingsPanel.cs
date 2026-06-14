@@ -19,6 +19,22 @@ using System.Windows.Forms;
 
 namespace TotalRecall;
 
+/// <summary>
+/// UserControl that hosts every user-tunable knob: capture cadence, retention, OCR
+/// thresholds, encryption, app exclusion list, auto-start, and the destructive
+/// "purge / clear database" buttons.
+/// </summary>
+/// <remarks>
+/// <para>This control is shared between the in-window Settings flow and the standalone
+/// <see cref="SettingsForm"/> wrapper. It raises three events the host listens for:</para>
+/// <list type="bullet">
+///   <item><see cref="SettingsSaved"/> — user clicked Save; host should call
+///     <see cref="AppSettings.Save"/> and re-apply any runtime hot-changes (interval timer etc.).</item>
+///   <item><see cref="PurgeRequested"/> — user clicked "Purge now"; host should run the retention sweep.</item>
+///   <item><see cref="ClearDatabaseRequested"/> — user clicked "Clear database"; host should
+///     run the nuclear delete-everything path.</item>
+/// </list>
+/// </remarks>
 public partial class SettingsPanel : UserControl
 {
     private AppSettings? settings;

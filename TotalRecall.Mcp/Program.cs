@@ -24,6 +24,24 @@ using TotalRecall;
 
 namespace TotalRecall.Mcp;
 
+/// <summary>
+/// Entry point for the TotalRecall MCP (Model Context Protocol) server. Hosts the
+/// <see cref="RecallTools"/> tool surface over stdio so any MCP-capable agent
+/// (Claude Desktop, Copilot CLI, custom clients) can query the recall database.
+/// </summary>
+/// <remarks>
+/// <para>Designed to be launched by an MCP client — never interactively. All output
+/// except for MCP protocol traffic on stdout/stderr is logged to a rotating file in
+/// <c>%LOCALAPPDATA%\TotalRecall\mcp-logs\</c>.</para>
+/// <para>Database resolution order (first hit wins):</para>
+/// <list type="number">
+///   <item><c>--db &lt;path&gt;</c> CLI arg</item>
+///   <item><c>TOTALRECALL_DB</c> environment variable</item>
+///   <item><c>AppSettings.Load().DbPath</c> from the user's settings.json</item>
+/// </list>
+/// <para>Same precedence applies for encryption passphrase
+/// (<c>--passphrase</c> / <c>TOTALRECALL_PASSPHRASE</c> / settings).</para>
+/// </remarks>
 internal static class Program
 {
     public static async Task Main(string[] args)

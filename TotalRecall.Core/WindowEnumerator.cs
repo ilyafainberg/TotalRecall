@@ -22,6 +22,9 @@ using static TotalRecall.NativeMethods;
 
 namespace TotalRecall;
 
+/// <summary>
+/// Snapshot of one top-level window observed by <see cref="WindowEnumerator"/>.
+/// </summary>
 internal sealed record EnumeratedWindow(
     IntPtr Handle,
     string Title,
@@ -32,6 +35,25 @@ internal sealed record EnumeratedWindow(
     RECT Bounds,
     bool IsForeground);
 
+/// <summary>
+/// Walks the desktop's top-level windows once per capture tick and filters out anything
+/// that isn't worth screenshotting.
+/// </summary>
+/// <remarks>
+/// Filter rules (in order, cheapest first — bail-out optimised):
+/// <list type="number">
+///   <item>Skip invisible windows (<c>IsWindowVisible</c> == false).</item>
+///   <item>Skip minimised windows (<c>IsIconic</c>) — <c>PrintWindow</c> returns a
+///     blank/old frame for these and OCR-ing it wastes cycles.</item>
+///   <item>Skip DWM-cloaked windows (suspended UWP apps, app-switcher previews,
+///     virtual-desktop ghosts).</item>
+///   <item>Skip tool windows (<c>WS_EX_TOOLWINDOW</c>) — floating palettes etc.</item>
+///   <item>Skip empty titles and windows smaller than 32×32.</item>
+/// </list>
+/// Process metadata (name, exe path, FileDescription/ProductName for friendly app name)
+/// is resolved via <see cref="Process.GetProcessById"/> and cached for 5 minutes — looking
+/// it up for every window on every tick is expensive (~50× the cost of the rest combined).
+/// </remarks>
 internal static class WindowEnumerator
 {
     private static readonly Lock cacheLock = new();
@@ -73,7 +95,7 @@ internal static class WindowEnumerator
                 results.Add(new EnumeratedWindow(
                     hWnd, title, (int)pid, processInfo.ProcessName, processInfo.ExecutablePath, processInfo.AppName, rect, hWnd == foreground));
             }
-            catch { /* ignore problem windows */ }
+            catch { /* skip windows that throw during interrogation — usually dying/transient frames */ }
 
             return true;
         }, IntPtr.Zero);
@@ -81,6 +103,11 @@ internal static class WindowEnumerator
         return results;
     }
 
+    /// <summary>
+    /// Returns cached process metadata if seen in the last 5 minutes; otherwise queries
+    /// the process and caches the result. Also evicts entries that haven't been touched
+    /// in 10 minutes so the cache doesn't grow without bound across long sessions.
+    /// </summary>
     private static CachedProcessInfo GetProcessInfo(int pid)
     {
         var now = DateTime.UtcNow;
@@ -109,6 +136,11 @@ internal static class WindowEnumerator
         return info;
     }
 
+    /// <summary>
+    /// Picks the most user-friendly name available, in this preference order:
+    /// FileDescription → ProductName → ProcessName. Defensive against missing
+    /// MainModule access (some protected processes throw on .NET).
+    /// </summary>
     private static CachedProcessInfo ResolveProcessInfo(int pid, DateTime now)
     {
         string procName = "";

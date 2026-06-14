@@ -4,16 +4,15 @@
 ;  the WinForms app and the bundled MCP server.
 ;
 ;  Build:   "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" /Qp installer\TotalRecall.iss
-;  Output:  installer\Output\TotalRecall-1.0.0-Setup.exe
+;  Output:  installer\Output\TotalRecall-1.0.1-Setup.exe
 ;
-;  This script consumes the already-published self-contained binaries staged
-;  by build-release.ps1 at:
-;    artifacts\staging\TotalRecall-1.0.0-win-x64\TotalRecall\        (WinForms)
-;    artifacts\staging\TotalRecall-1.0.0-win-x64\TotalRecall.Mcp\    (MCP server)
+;  This script consumes the already-published self-contained binaries staged at:
+;    artifacts\staging\TotalRecall-1.0.1-win-x64\TotalRecall\        (WinForms)
+;    artifacts\staging\TotalRecall-1.0.1-win-x64\TotalRecall.Mcp\    (MCP server)
 ; ============================================================================
 
 #define MyAppName        "TotalRecall"
-#define MyAppVersion     "1.0.0"
+#define MyAppVersion     "1.0.1"
 #define MyAppPublisher   "Ilya Fainberg"
 #define MyAppURL         "https://github.com/ilyafainberg/TotalRecall"
 #define MyAppExeName     "TotalRecall.exe"

@@ -18,6 +18,19 @@ using System.Windows.Forms;
 
 namespace TotalRecall;
 
+/// <summary>
+/// WinForms application entry point. Parses CLI arguments via <see cref="LaunchOptions"/>,
+/// applies high-DPI + visual styles, then shows <see cref="MainForm"/>.
+/// </summary>
+/// <remarks>
+/// Supported CLI args (see <see cref="LaunchOptions"/>):
+/// <list type="bullet">
+///   <item><c>--capture-off</c> — launch with capture paused (used by smoke tests and
+///     by the auto-start shortcut so the app doesn't immediately start recording).</item>
+///   <item><c>--minimized</c> — launch directly into the system tray.</item>
+///   <item><c>--help</c> — show a usage MessageBox and exit.</item>
+/// </list>
+/// </remarks>
 internal static class Program
 {
     [STAThread]

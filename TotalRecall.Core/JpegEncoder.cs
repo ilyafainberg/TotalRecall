@@ -22,11 +22,21 @@ using System.Linq;
 
 namespace TotalRecall;
 
+/// <summary>
+/// Encodes a <see cref="Bitmap"/> as a JPEG byte array. JPEG has no alpha channel,
+/// so 32-bit ARGB inputs are first flattened onto a white background — leaving them
+/// in place would emit black or random pixels for the previously-transparent regions.
+/// </summary>
 public static class JpegEncoder
 {
     private static readonly ImageCodecInfo s_jpegCodec =
         ImageCodecInfo.GetImageEncoders().First(c => c.MimeType == "image/jpeg");
 
+    /// <summary>
+    /// Encodes <paramref name="bmp"/> as a JPEG. <paramref name="quality"/> is clamped
+    /// to [30, 95]; the GDI+ JPEG encoder's curve flattens out above 95 (file size
+    /// explodes for negligible quality gain) and falls apart below 30.
+    /// </summary>
     public static byte[] Encode(Bitmap bmp, int quality)
     {
         quality = Math.Clamp(quality, 30, 95);

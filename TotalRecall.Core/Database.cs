@@ -22,6 +22,29 @@ using Microsoft.Data.Sqlite;
 
 namespace TotalRecall;
 
+/// <summary>
+/// SQLCipher-backed persistence for snapshots, windows, and full-text search.
+/// </summary>
+/// <remarks>
+/// <para>Schema (see <c>EnsureSchema</c>):</para>
+/// <list type="bullet">
+///   <item><c>snapshots(id, captured_at_utc, user_name)</c> — one row per capture tick.</item>
+///   <item><c>windows(id, snapshot_id, title, app_name, …, image_jpeg BLOB, text_content)</c>
+///     — one row per stored window. <c>image_jpeg</c> is the on-disk JPEG payload; the
+///     bitmap itself never hits the filesystem outside the DB.</item>
+///   <item><c>windows_fts</c> — external-content FTS5 virtual table mirroring
+///     <c>title</c>, <c>app_name</c>, <c>text_content</c>. Three triggers keep it in sync
+///     on INSERT/UPDATE/DELETE so searches stay correct after retention purges.</item>
+/// </list>
+/// <para><b>Encryption:</b> SQLCipher key is supplied via the <c>Password=</c> field on the
+/// connection string and set via <c>PRAGMA key</c> on every connection open. When the user
+/// chooses "No encryption" we connect without a key (plain SQLite). The provider package
+/// (<c>SQLitePCLRaw.bundle_e_sqlcipher</c>) replaces the default SQLite native lib with one
+/// that has SQLCipher compiled in — no other code changes required for either mode.</para>
+/// <para><b>Concurrency:</b> Microsoft.Data.Sqlite is connection-per-operation; the
+/// underlying file is opened with <c>journal_mode=WAL</c> so reads from the Browse pane
+/// don't block writes from the capture loop.</para>
+/// </remarks>
 public sealed class Database : IDisposable
 {
     private static int initialized;

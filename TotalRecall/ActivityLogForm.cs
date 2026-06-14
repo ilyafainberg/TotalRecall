@@ -20,6 +20,12 @@ using System.Windows.Forms;
 
 namespace TotalRecall;
 
+/// <summary>
+/// Non-modal "Activity log" window opened from the hamburger menu. Subscribes to
+/// <see cref="LogSink.LineAppended"/> and renders new lines into a read-only multiline
+/// TextBox. Closing the window just hides it — <see cref="MainForm"/> reuses the same
+/// instance so the scrollback survives reopens.
+/// </summary>
 public sealed class ActivityLogForm : Form
 {
     private readonly TextBox logTxt;

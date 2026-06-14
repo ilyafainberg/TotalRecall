@@ -1,3 +1,32 @@
+# TotalRecall v1.0.1
+
+Quality-of-life release. Mostly UX polish plus an OSS-readiness comment sweep across the codebase so external contributors can find their footing.
+
+## What's new
+
+- **Single-window UI overhaul.** The old "Capture / Browse / Settings" tabbed layout is gone. The window is now Browse-first, with:
+  - A compact capture status bar inlined directly into the application header (status pill, interval / JPEG / encryption summary, last-snapshot stamp, Start/Stop).
+  - A three-pane Browse workspace: results · zoomable preview · collapsible OCR text.
+  - Activity Log, Settings, and Open DB Folder moved behind a hamburger menu in the header.
+  - "Capture Now" removed (it was a debug button that confused users).
+- **Zoomable preview with pan.** The preview pane now supports Fit / 25 / 50 / 75 / 100 / 150 / 200% zoom via a slider, `Ctrl + +` / `Ctrl + -` / `Ctrl + 0`, and `Ctrl + mouse wheel`. When zoomed past the viewport, the hand cursor lets you click-and-drag to pan the image.
+- **Keyboard-shortcut display fix.** Hamburger menu items now use `ShortcutKeyDisplayString` (the correct WinForms property) so the keybindings actually render on the right of each item.
+- **OSS contributor pass.** Every non-Designer source file received a class-level XML summary explaining its role, rationale, and extension points. `AppSettings` now has a "how to add a setting" checklist; `Database` has a schema overview; `SnapshotService` has an algorithm narrative explaining why change-detection runs before OCR.
+
+## Artifacts
+
+- **🟢 Inno Setup installer** *(recommended)* — `TotalRecall-1.0.1-Setup.exe`. Single-file, per-user install, no admin/UAC.
+- **Portable ZIP** — `TotalRecall-1.0.1-Portable-win-x64.zip`. Extract anywhere stable, run `TotalRecall\TotalRecall.exe`. Self-contained, no install, no Add/Remove Programs entry.
+- **MCP server only** — `TotalRecall-Mcp-1.0.1-win-x64.zip`. Standalone MCP server bundle for users who already have a TotalRecall DB and only need the AI-agent integration.
+
+All artifacts are self-contained — no .NET runtime required.
+
+## No breaking changes
+
+Database schema, settings.json, and the MCP tool surface are unchanged from v1.0.0.
+
+---
+
 # TotalRecall v1.0.0
 
 First public release. A local, searchable, encrypted index of everything that happens on your computer — with an optional MCP server so AI agents can query it.

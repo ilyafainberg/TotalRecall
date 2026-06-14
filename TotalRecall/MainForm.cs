@@ -24,6 +24,32 @@ using System.Windows.Forms;
 
 namespace TotalRecall;
 
+/// <summary>
+/// The application's main window. Owns the capture pipeline lifecycle, the system tray,
+/// the hamburger menu, the embedded browse pane, and the singleton ActivityLog +
+/// Settings sub-windows.
+/// </summary>
+/// <remarks>
+/// <para><b>Layout:</b></para>
+/// <list type="bullet">
+///   <item><b>Header</b> — app title, inline capture status pill ("Recording" / "Idle"),
+///     interval / JPEG / encryption summary, last-snapshot stamp, Start/Stop buttons,
+///     hamburger menu button, Quit button. All the <c>cap*</c> named fields below were
+///     transplanted in from the old <c>CaptureBar</c> control.</item>
+///   <item><b>Body</b> — <see cref="BrowsePanel"/> docked fill.</item>
+///   <item><b>Footer</b> — DB path + size status strip.</item>
+/// </list>
+/// <para><b>Capture lifecycle:</b> a single <see cref="System.Threading.Timer"/> drives
+/// <see cref="TickAsync"/> on the threadpool. <see cref="captureBusy"/> is an
+/// <see cref="Interlocked"/> guard so a slow tick (heavy OCR) never re-enters.</para>
+/// <para><b>Tray vs. window:</b> closing the window minimises to tray unless the user
+/// chose "Exit" from the tray menu (sets <see cref="reallyExit"/>). This is intentional —
+/// users on the auto-start shortcut expect the app to keep recording in the background.</para>
+/// <para><b>Shortcuts:</b> <see cref="ProcessCmdKey"/> is the sole router for all
+/// global keyboard shortcuts (Ctrl+L, Ctrl+,, Ctrl+Shift+D, F5, Ctrl+F, Ctrl+ +/-, …).
+/// The hamburger menu uses <c>ShortcutKeyDisplayString</c> only — never
+/// <c>ShortcutKeys</c> — to display the binding without competing with the router.</para>
+/// </remarks>
 public partial class MainForm : Form
 {
     private AppSettings? settings;
