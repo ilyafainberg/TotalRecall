@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Threading;
@@ -45,6 +46,11 @@ public partial class MainForm : Form
     // CLI override of the auto-start-capture decision. null = honour settings.WasCapturing.
     private bool? captureOverride;
 
+    // Auxiliary windows (singletons; reopened windows just bring the existing one to front).
+    private ActivityLogForm? activityLogForm;
+    private SettingsForm? settingsForm;
+    private ContextMenuStrip? hamburgerMenu;
+
     public MainForm() : this(new LaunchOptions()) { }
 
     /// <summary>Legacy convenience ctor — keeps older callers compiling.</summary>
@@ -68,7 +74,6 @@ public partial class MainForm : Form
         if (settings.EncryptionMode == EncryptionMode.Passphrase) mode = "Password Encrypted";
         if (settings.EncryptionMode == EncryptionMode.UserAccount) mode = "User Account Encrypted";
 
-
         this.Text = "TotalRecall (" + mode + ")";
 
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
@@ -86,43 +91,25 @@ public partial class MainForm : Form
             WindowState = FormWindowState.Minimized;
         }
 
-        capturePanel.BindSettings(settings);
-        settingsPanel.BindSettings(settings);
+        captureBar.BindSettings(settings);
 
-        tabs.SelectedIndexChanged += (_, _) =>
-        {
-            if (tabs.SelectedTab == tabBrowse) browsePanel.RefreshIfNeeded();
-        };
-
-        capturePanel.StartClicked += async (_, _) =>
+        captureBar.StartClicked += async (_, _) =>
         {
             await StartAsync();
             PersistCaptureIntent(true);
         };
-        capturePanel.StopClicked  += (_, _) =>
+        captureBar.StopClicked += (_, _) =>
         {
             Stop();
             PersistCaptureIntent(false);
         };
-        capturePanel.CaptureNowClicked += async (_, _) => await CaptureNowAsync();
-        capturePanel.OpenDbFolderClicked += (_, _) => OpenDbFolder();
 
-        settingsPanel.SettingsSaved += (_, _) =>
+        BuildHamburgerMenu();
+        menuBtn.Click += (_, _) =>
         {
-            DisposeServices();
-            capturePanel.RefreshFromSettings();
-            UpdateDbLabel();
-            TryAttachExistingDatabase();
-            // Force the retention sweep to re-run on next tick / now, with the new thresholds.
-            lastRetentionUtc = DateTime.MinValue;
-            RunRetentionSweep(force: true);
-            // If the user toggled "Minimize to tray" off while we're hidden, restore the window.
-            if (settings != null && !settings.MinimizeToTray && !Visible)
-                ShowFromTray();
+            if (hamburgerMenu == null) return;
+            hamburgerMenu.Show(menuBtn, new Point(0, menuBtn.Height));
         };
-
-        settingsPanel.PurgeRequested += (_, _) => RunRetentionSweep(force: true, compactNow: true);
-        settingsPanel.ClearDatabaseRequested += (_, _) => ClearDatabaseNow();
 
         FormClosing += OnFormClosingHandler;
 
@@ -133,6 +120,8 @@ public partial class MainForm : Form
         UpdateDbLabel();
         TryAttachExistingDatabase();
         RunRetentionSweep(force: true);
+        // Force an initial Browse populate so the user sees data immediately.
+        browsePanel.RefreshIfNeeded();
 
         // Resume capture if it was running when the app was last closed.
         // CLI override (--capture-on / --capture-off) wins over remembered state.
@@ -154,6 +143,100 @@ public partial class MainForm : Form
         try { settings.Save(); } catch { /* swallow — best-effort persistence */ }
     }
 
+    // --- Hamburger menu --------------------------------------------------
+
+    private void BuildHamburgerMenu()
+    {
+        hamburgerMenu = new ContextMenuStrip
+        {
+            BackColor = Color.FromArgb(245, 245, 247),
+            ForeColor = Theme.Fg,
+            Font = Theme.UiFont,
+            ShowImageMargin = false,
+        };
+        hamburgerMenu.Items.Add(new ToolStripMenuItem("Refresh results\tF5", null, (_, _) => browsePanel.ForceRefresh()));
+        hamburgerMenu.Items.Add(new ToolStripSeparator());
+        hamburgerMenu.Items.Add(new ToolStripMenuItem("Activity log\tCtrl+L", null, (_, _) => OpenActivityLog()));
+        hamburgerMenu.Items.Add(new ToolStripMenuItem("Settings…\tCtrl+,", null, (_, _) => OpenSettings()));
+        hamburgerMenu.Items.Add(new ToolStripMenuItem("Open DB folder\tCtrl+Shift+D", null, (_, _) => OpenDbFolder()));
+        hamburgerMenu.Items.Add(new ToolStripSeparator());
+        hamburgerMenu.Items.Add(new ToolStripMenuItem("About TotalRecall…", null, (_, _) => ShowAbout()));
+    }
+
+    private void OpenActivityLog()
+    {
+        if (activityLogForm == null || activityLogForm.IsDisposed)
+        {
+            activityLogForm = new ActivityLogForm();
+            activityLogForm.FormClosed += (_, _) => activityLogForm = null;
+            activityLogForm.Show(this);
+        }
+        else
+        {
+            if (activityLogForm.WindowState == FormWindowState.Minimized)
+                activityLogForm.WindowState = FormWindowState.Normal;
+            activityLogForm.BringToFront();
+            activityLogForm.Activate();
+        }
+    }
+
+    private void OpenSettings()
+    {
+        if (settings == null) return;
+        if (settingsForm == null || settingsForm.IsDisposed)
+        {
+            settingsForm = new SettingsForm(settings);
+            settingsForm.SettingsSaved += (_, _) =>
+            {
+                DisposeServices();
+                captureBar.RefreshFromSettings();
+                UpdateDbLabel();
+                TryAttachExistingDatabase();
+                lastRetentionUtc = DateTime.MinValue;
+                RunRetentionSweep(force: true);
+                if (settings != null && !settings.MinimizeToTray && !Visible) ShowFromTray();
+            };
+            settingsForm.PurgeRequested += (_, _) => RunRetentionSweep(force: true, compactNow: true);
+            settingsForm.ClearDatabaseRequested += (_, _) => ClearDatabaseNow();
+            settingsForm.FormClosed += (_, _) => settingsForm = null;
+            settingsForm.Show(this);
+        }
+        else
+        {
+            if (settingsForm.WindowState == FormWindowState.Minimized)
+                settingsForm.WindowState = FormWindowState.Normal;
+            settingsForm.BringToFront();
+            settingsForm.Activate();
+        }
+    }
+
+    private void ShowAbout()
+    {
+        var asm = typeof(MainForm).Assembly;
+        var ver = asm.GetName().Version?.ToString(3) ?? "?";
+        var msg =
+            $"TotalRecall v{ver}\r\n" +
+            "Local screen-activity indexer.\r\n\r\n" +
+            "https://github.com/ilyafainberg/TotalRecall\r\n\r\n" +
+            "Licensed under GPL-3.0-or-later.";
+        MessageBox.Show(this, msg, "About TotalRecall", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    // --- Keyboard shortcuts ---------------------------------------------
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        // Hamburger shortcuts first.
+        if (keyData == (Keys.Control | Keys.L)) { OpenActivityLog(); return true; }
+        if (keyData == (Keys.Control | Keys.Oemcomma)) { OpenSettings(); return true; }
+        if (keyData == (Keys.Control | Keys.Shift | Keys.D)) { OpenDbFolder(); return true; }
+
+        // Forward Browse-panel shortcuts (zoom, F5, Ctrl+F).
+        if (browsePanel.TryHandleShortcut(keyData)) return true;
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
     // --- Tray + window-state plumbing ----------------------------------
 
     private void BuildTrayIcon()
@@ -171,10 +254,8 @@ public partial class MainForm : Form
         menu.Items.Add(new ToolStripSeparator());
         trayStartItem = new ToolStripMenuItem("Start capture", null, async (_, _) => await StartAsync());
         trayStopItem  = new ToolStripMenuItem("Stop capture", null, (_, _) => Stop()) { Enabled = false };
-        var trayCaptureNow = new ToolStripMenuItem("Capture now", null, async (_, _) => await CaptureNowAsync());
         menu.Items.Add(trayStartItem);
         menu.Items.Add(trayStopItem);
-        menu.Items.Add(trayCaptureNow);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => { reallyExit = true; Close(); });
 
@@ -293,10 +374,10 @@ public partial class MainForm : Form
         }
         cts = new CancellationTokenSource();
         var intervalMs = settings.IntervalSeconds * 1000;
-        capturePanel.SetRunningState(true);
+        captureBar.SetRunningState(true);
         UpdateTrayMenuState(true);
         SetStatus($"Running. Interval = {settings.IntervalSeconds}s");
-        capturePanel.Log($"Started. Interval = {settings.IntervalSeconds}s, JPEG q={settings.JpegQuality}, encryption={settings.EncryptionMode}");
+        LogSink.Log($"Started. Interval = {settings.IntervalSeconds}s, JPEG q={settings.JpegQuality}, encryption={settings.EncryptionMode}");
         await TickAsync();
         timer = new System.Threading.Timer(async _ => await TickAsync(), null, intervalMs, intervalMs);
     }
@@ -304,27 +385,17 @@ public partial class MainForm : Form
     private void Stop()
     {
         try { timer?.Dispose(); timer = null; cts?.Cancel(); } catch { }
-        capturePanel.SetRunningState(false);
+        captureBar.SetRunningState(false);
         UpdateTrayMenuState(false);
-        SetStatus("Stopped.");
-        capturePanel.Log("Stopped.");
-    }
-
-    private async Task CaptureNowAsync()
-    {
-        try
-        {
-            EnsureServices();
-            await TickAsync();
-        }
-        catch (Exception ex) { ShowError("Capture error", ex.Message); }
+        SetStatus("");
+        LogSink.Log("Stopped.");
     }
 
     private async Task TickAsync()
     {
         if (Interlocked.Exchange(ref captureBusy, 1) == 1)
         {
-            capturePanel.Log("Skipping tick — previous capture still running.");
+            LogSink.Log("Skipping tick — previous capture still running.");
             return;
         }
         try
@@ -333,13 +404,20 @@ public partial class MainForm : Form
             var ct = cts?.Token ?? CancellationToken.None;
             var result = await service.CaptureOnceAsync(ct);
             var snapshotLabel = result.SnapshotId > 0 ? $"snapshot #{result.SnapshotId}" : "no-change tick";
-            capturePanel.Log($"[{DateTime.Now:HH:mm:ss}] {snapshotLabel}: {result.StoredWindowCount}/{result.WindowCount} windows stored, {result.SkippedUnchanged} unchanged skipped, {result.ImageBytes / 1024} KB JPEG, {result.ElapsedMs} ms");
+            LogSink.Log($"{snapshotLabel}: {result.StoredWindowCount}/{result.WindowCount} windows stored, {result.SkippedUnchanged} unchanged skipped, {result.ImageBytes / 1024} KB JPEG, {result.ElapsedMs} ms");
+            try
+            {
+                var lastLine = $"Last: {DateTime.Now:HH:mm:ss}  ·  {result.StoredWindowCount}/{result.WindowCount} stored";
+                if (InvokeRequired) BeginInvoke(() => captureBar.SetLastSnapshot(lastLine));
+                else captureBar.SetLastSnapshot(lastLine);
+            }
+            catch { }
             UpdateDbLabel();
             browsePanel.InvalidateData();
             RunRetentionSweep(force: false);
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { capturePanel.Log("Tick error: " + ex.Message); }
+        catch (Exception ex) { LogSink.Log("Tick error: " + ex.Message); }
         finally { Interlocked.Exchange(ref captureBusy, 0); }
     }
 
@@ -369,17 +447,17 @@ public partial class MainForm : Form
                     compaction = snapshotDb.Vacuum();
                     didCompact = compaction.Ran;
                     snapshotSettings.LastCompactionUtc = DateTime.UtcNow.ToString("o");
-                    try { snapshotSettings.Save(); } catch (Exception ex) { BeginInvoke(new Action(() => capturePanel.Log("[retention] compaction timestamp save error: " + ex.Message))); }
+                    try { snapshotSettings.Save(); } catch (Exception ex) { LogSink.Log("[retention] compaction timestamp save error: " + ex.Message); }
                 }
 
                 if (r.Changed || didCompact)
                 {
+                    var compactMsg = didCompact
+                        ? $", compacted DB ({FormatBytes(compaction.ReclaimedBytes)} reclaimed)"
+                        : "";
+                    LogSink.Log($"[retention] purged {r.RowsDeleted} row(s), stripped {r.ImagesPurged} image(s){compactMsg}.");
                     BeginInvoke(new Action(() =>
                     {
-                        var compactMsg = didCompact
-                            ? $", compacted DB ({FormatBytes(compaction.ReclaimedBytes)} reclaimed)"
-                            : "";
-                        capturePanel.Log($"[retention] purged {r.RowsDeleted} row(s), stripped {r.ImagesPurged} image(s){compactMsg}.");
                         UpdateDbLabel();
                         browsePanel.InvalidateData();
                     }));
@@ -387,7 +465,7 @@ public partial class MainForm : Form
             }
             catch (Exception ex)
             {
-                BeginInvoke(new Action(() => capturePanel.Log("[retention] error: " + ex.Message)));
+                LogSink.Log("[retention] error: " + ex.Message);
             }
         });
     }
@@ -401,7 +479,7 @@ public partial class MainForm : Form
     {
         if (db == null)
         {
-            capturePanel.Log("[clear] no database attached.");
+            LogSink.Log("[clear] no database attached.");
             return;
         }
 
@@ -418,11 +496,11 @@ public partial class MainForm : Form
                 {
                     snapshotSettings.LastCompactionUtc = DateTime.UtcNow.ToString("o");
                     try { snapshotSettings.Save(); }
-                    catch (Exception ex) { BeginInvoke(new Action(() => capturePanel.Log("[clear] compaction timestamp save error: " + ex.Message))); }
+                    catch (Exception ex) { LogSink.Log("[clear] compaction timestamp save error: " + ex.Message); }
                 }
+                LogSink.Log($"[clear] database wiped: {deleted} snapshot(s) deleted, compacted DB ({FormatBytes(compacted.ReclaimedBytes)} reclaimed).");
                 BeginInvoke(new Action(() =>
                 {
-                    capturePanel.Log($"[clear] database wiped: {deleted} snapshot(s) deleted, compacted DB ({FormatBytes(compacted.ReclaimedBytes)} reclaimed).");
                     UpdateDbLabel();
                     browsePanel.InvalidateData();
                     browsePanel.RefreshIfNeeded();
@@ -516,10 +594,7 @@ public partial class MainForm : Form
         {
             var dir = Path.GetDirectoryName(settings.DatabasePath) ?? AppSettings.AppDataDir;
             Directory.CreateDirectory(dir);
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = dir, UseShellExecute = true,
-            });
+            Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
         }
         catch (Exception ex) { ShowError("Open folder failed", ex.Message); }
     }
@@ -553,7 +628,7 @@ public partial class MainForm : Form
 
     private void ShowError(string title, string msg)
     {
-        capturePanel.Log("ERROR: " + msg);
+        LogSink.Log("ERROR: " + msg);
         MessageBox.Show(this, msg, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 

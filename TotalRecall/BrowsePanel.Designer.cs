@@ -43,28 +43,52 @@ partial class BrowsePanel
         refreshBtn = new Button();
         resultsCountLbl = new Label();
         topSpacer = new Panel();
-        split = new SplitContainer();
+
+        outerSplit = new SplitContainer();
+        innerSplit = new SplitContainer();
+
         results = new ListView();
         colWhen = new ColumnHeader();
-        colApp = new ColumnHeader();
         colTitle = new ColumnHeader();
         colSnippet = new ColumnHeader();
-        colImgKb = new ColumnHeader();
-        colChars = new ColumnHeader();
-        rightLayout = new TableLayoutPanel();
+        colApp = new ColumnHeader();
+
+        previewContainer = new Panel();
+        previewToolbar = new Panel();
         previewTitleLbl = new Label();
         previewMetaLbl = new Label();
-        preview = new PictureBox();
+        zoomCaptionLbl = new Label();
+        zoomBar = new TrackBar();
+        zoomValueLbl = new Label();
+        toggleSnippetBtn = new Button();
+        preview = new ZoomablePicturePanel();
+        previewCtx = new ContextMenuStrip();
+
+        textContainer = new Panel();
+        textToolbar = new Panel();
+        textTitleLbl = new Label();
+        copyTextBtn = new Button();
+        collapseTextBtn = new Button();
         previewText = new TextBox();
+        textCtx = new ContextMenuStrip();
+
         searchCard.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)limitNud).BeginInit();
-        ((System.ComponentModel.ISupportInitialize)split).BeginInit();
-        split.Panel1.SuspendLayout();
-        split.Panel2.SuspendLayout();
-        split.SuspendLayout();
-        rightLayout.SuspendLayout();
-        ((System.ComponentModel.ISupportInitialize)preview).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)outerSplit).BeginInit();
+        outerSplit.Panel1.SuspendLayout();
+        outerSplit.Panel2.SuspendLayout();
+        outerSplit.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)innerSplit).BeginInit();
+        innerSplit.Panel1.SuspendLayout();
+        innerSplit.Panel2.SuspendLayout();
+        innerSplit.SuspendLayout();
+        previewContainer.SuspendLayout();
+        previewToolbar.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)zoomBar).BeginInit();
+        textContainer.SuspendLayout();
+        textToolbar.SuspendLayout();
         SuspendLayout();
+
         // 
         // searchCard
         // 
@@ -209,7 +233,6 @@ partial class BrowsePanel
         searchBtn.TabIndex = 10;
         searchBtn.Text = "🔍  Search";
         searchBtn.UseVisualStyleBackColor = false;
-        searchBtn.Click += searchBtn_Click;
         // 
         // refreshBtn
         // 
@@ -246,38 +269,46 @@ partial class BrowsePanel
         topSpacer.Name = "topSpacer";
         topSpacer.Size = new Size(1060, 12);
         topSpacer.TabIndex = 1;
+
         // 
-        // split
+        // outerSplit (Vertical: results | innerSplit)
         // 
-        split.BackColor = Color.FromArgb(245, 245, 247);
-        split.Cursor = Cursors.SizeWE;
-        split.Dock = DockStyle.Fill;
-        split.Location = new Point(20, 142);
-        split.Name = "split";
+        outerSplit.BackColor = Color.FromArgb(245, 245, 247);
+        outerSplit.Dock = DockStyle.Fill;
+        outerSplit.Location = new Point(20, 142);
+        outerSplit.Name = "outerSplit";
+        outerSplit.Panel1.BackColor = Color.FromArgb(255, 255, 255);
+        outerSplit.Panel1.Controls.Add(results);
+        outerSplit.Panel1.Padding = new Padding(12);
+        outerSplit.Panel2.BackColor = Color.FromArgb(245, 245, 247);
+        outerSplit.Panel2.Controls.Add(innerSplit);
+        outerSplit.Size = new Size(1060, 458);
+        outerSplit.SplitterDistance = 580;
+        outerSplit.SplitterWidth = 6;
+        outerSplit.TabIndex = 0;
         // 
-        // split.Panel1
+        // innerSplit (Vertical: previewContainer | textContainer)
         // 
-        split.Panel1.BackColor = Color.FromArgb(255, 255, 255);
-        split.Panel1.Controls.Add(results);
-        split.Panel1.Cursor = Cursors.Default;
-        split.Panel1.Padding = new Padding(12);
-        // 
-        // split.Panel2
-        // 
-        split.Panel2.BackColor = Color.FromArgb(255, 255, 255);
-        split.Panel2.Controls.Add(rightLayout);
-        split.Panel2.Cursor = Cursors.Default;
-        split.Panel2.Padding = new Padding(12);
-        split.Size = new Size(1060, 458);
-        split.SplitterDistance = 700;
-        split.SplitterWidth = 6;
-        split.TabIndex = 0;
+        innerSplit.BackColor = Color.FromArgb(245, 245, 247);
+        innerSplit.Dock = DockStyle.Fill;
+        innerSplit.Location = new Point(0, 0);
+        innerSplit.Name = "innerSplit";
+        innerSplit.Panel1.BackColor = Color.FromArgb(255, 255, 255);
+        innerSplit.Panel1.Controls.Add(previewContainer);
+        innerSplit.Panel2.BackColor = Color.FromArgb(255, 255, 255);
+        innerSplit.Panel2.Controls.Add(textContainer);
+        innerSplit.Panel2MinSize = 60;
+        innerSplit.Size = new Size(474, 458);
+        innerSplit.SplitterDistance = 280;
+        innerSplit.SplitterWidth = 6;
+        innerSplit.TabIndex = 0;
+
         // 
         // results
         // 
         results.BackColor = Color.FromArgb(245, 245, 247);
         results.BorderStyle = BorderStyle.None;
-        results.Columns.AddRange(new ColumnHeader[] { colWhen, colApp, colTitle, colSnippet, colImgKb, colChars });
+        results.Columns.AddRange(new ColumnHeader[] { colWhen, colTitle, colSnippet, colApp });
         results.Dock = DockStyle.Fill;
         results.Font = new Font("Segoe UI", 9.5F);
         results.ForeColor = Color.FromArgb(28, 28, 30);
@@ -286,7 +317,7 @@ partial class BrowsePanel
         results.Location = new Point(12, 12);
         results.MultiSelect = false;
         results.Name = "results";
-        results.Size = new Size(676, 434);
+        results.Size = new Size(556, 434);
         results.TabIndex = 0;
         results.UseCompatibleStateImageBehavior = false;
         results.View = View.Details;
@@ -294,12 +325,7 @@ partial class BrowsePanel
         // colWhen
         // 
         colWhen.Text = "When";
-        colWhen.Width = 130;
-        // 
-        // colApp
-        // 
-        colApp.Text = "App";
-        colApp.Width = 130;
+        colWhen.Width = 140;
         // 
         // colTitle
         // 
@@ -309,72 +335,197 @@ partial class BrowsePanel
         // colSnippet
         // 
         colSnippet.Text = "Snippet";
-        colSnippet.Width = 280;
+        colSnippet.Width = 320;
         // 
-        // colImgKb
+        // colApp
         // 
-        colImgKb.Text = "Img KB";
+        colApp.Text = "App";
+        colApp.Width = 150;
+
         // 
-        // colChars
+        // previewContainer
         // 
-        colChars.Text = "Chars";
+        previewContainer.BackColor = Color.FromArgb(255, 255, 255);
+        previewContainer.Controls.Add(preview);
+        previewContainer.Controls.Add(previewToolbar);
+        previewContainer.Dock = DockStyle.Fill;
+        previewContainer.Location = new Point(0, 0);
+        previewContainer.Name = "previewContainer";
+        previewContainer.Padding = new Padding(12);
+        previewContainer.Size = new Size(280, 458);
+        previewContainer.TabIndex = 0;
         // 
-        // rightLayout
+        // previewToolbar
         // 
-        rightLayout.BackColor = Color.FromArgb(255, 255, 255);
-        rightLayout.ColumnCount = 1;
-        rightLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        rightLayout.Controls.Add(previewTitleLbl, 0, 0);
-        rightLayout.Controls.Add(previewMetaLbl, 0, 1);
-        rightLayout.Controls.Add(preview, 0, 2);
-        rightLayout.Controls.Add(previewText, 0, 3);
-        rightLayout.Dock = DockStyle.Fill;
-        rightLayout.Location = new Point(12, 12);
-        rightLayout.Name = "rightLayout";
-        rightLayout.RowCount = 4;
-        rightLayout.RowStyles.Add(new RowStyle());
-        rightLayout.RowStyles.Add(new RowStyle());
-        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 60F));
-        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 40F));
-        rightLayout.Size = new Size(330, 434);
-        rightLayout.TabIndex = 0;
+        previewToolbar.BackColor = Color.FromArgb(255, 255, 255);
+        previewToolbar.Controls.Add(previewTitleLbl);
+        previewToolbar.Controls.Add(previewMetaLbl);
+        previewToolbar.Controls.Add(zoomCaptionLbl);
+        previewToolbar.Controls.Add(zoomBar);
+        previewToolbar.Controls.Add(zoomValueLbl);
+        previewToolbar.Controls.Add(toggleSnippetBtn);
+        previewToolbar.Dock = DockStyle.Top;
+        previewToolbar.Location = new Point(12, 12);
+        previewToolbar.Name = "previewToolbar";
+        previewToolbar.Size = new Size(256, 76);
+        previewToolbar.TabIndex = 0;
         // 
         // previewTitleLbl
         // 
-        previewTitleLbl.AutoSize = true;
-        previewTitleLbl.Dock = DockStyle.Fill;
-        previewTitleLbl.Font = new Font("Segoe UI Semibold", 11F);
+        previewTitleLbl.AutoEllipsis = true;
+        previewTitleLbl.Font = new Font("Segoe UI Semibold", 10.5F);
         previewTitleLbl.ForeColor = Color.FromArgb(28, 28, 30);
-        previewTitleLbl.Location = new Point(3, 0);
+        previewTitleLbl.Location = new Point(0, 0);
         previewTitleLbl.Name = "previewTitleLbl";
-        previewTitleLbl.Padding = new Padding(4, 0, 4, 4);
-        previewTitleLbl.Size = new Size(324, 24);
+        previewTitleLbl.Padding = new Padding(2, 0, 2, 0);
+        previewTitleLbl.Size = new Size(256, 22);
         previewTitleLbl.TabIndex = 0;
         previewTitleLbl.Text = "Select a result to preview";
         // 
         // previewMetaLbl
         // 
-        previewMetaLbl.AutoSize = true;
-        previewMetaLbl.Dock = DockStyle.Fill;
-        previewMetaLbl.Font = new Font("Segoe UI", 9.5F);
+        previewMetaLbl.AutoEllipsis = true;
+        previewMetaLbl.Font = new Font("Segoe UI", 9F);
         previewMetaLbl.ForeColor = Color.FromArgb(102, 102, 108);
-        previewMetaLbl.Location = new Point(3, 24);
+        previewMetaLbl.Location = new Point(0, 22);
         previewMetaLbl.Name = "previewMetaLbl";
-        previewMetaLbl.Padding = new Padding(4, 0, 4, 8);
-        previewMetaLbl.Size = new Size(324, 25);
+        previewMetaLbl.Padding = new Padding(2, 0, 2, 0);
+        previewMetaLbl.Size = new Size(256, 20);
         previewMetaLbl.TabIndex = 1;
+        previewMetaLbl.Text = "";
+        // 
+        // zoomCaptionLbl
+        // 
+        zoomCaptionLbl.AutoSize = true;
+        zoomCaptionLbl.Font = new Font("Segoe UI", 8.5F);
+        zoomCaptionLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        zoomCaptionLbl.Location = new Point(2, 50);
+        zoomCaptionLbl.Name = "zoomCaptionLbl";
+        zoomCaptionLbl.Size = new Size(34, 15);
+        zoomCaptionLbl.TabIndex = 2;
+        zoomCaptionLbl.Text = "Zoom";
+        // 
+        // zoomBar
+        // 
+        zoomBar.AutoSize = false;
+        zoomBar.BackColor = Color.FromArgb(255, 255, 255);
+        zoomBar.LargeChange = 1;
+        zoomBar.Location = new Point(40, 48);
+        zoomBar.Maximum = 6;
+        zoomBar.Minimum = 0;
+        zoomBar.Name = "zoomBar";
+        zoomBar.Size = new Size(160, 28);
+        zoomBar.TabIndex = 3;
+        zoomBar.TickStyle = TickStyle.None;
+        zoomBar.Value = 0;
+        // 
+        // zoomValueLbl
+        // 
+        zoomValueLbl.AutoSize = false;
+        zoomValueLbl.Font = new Font("Segoe UI", 9F);
+        zoomValueLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        zoomValueLbl.Location = new Point(202, 50);
+        zoomValueLbl.Name = "zoomValueLbl";
+        zoomValueLbl.Size = new Size(40, 18);
+        zoomValueLbl.TabIndex = 4;
+        zoomValueLbl.Text = "Fit";
+        // 
+        // toggleSnippetBtn
+        // 
+        toggleSnippetBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        toggleSnippetBtn.BackColor = Color.FromArgb(235, 235, 238);
+        toggleSnippetBtn.Cursor = Cursors.Hand;
+        toggleSnippetBtn.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 215);
+        toggleSnippetBtn.FlatStyle = FlatStyle.Flat;
+        toggleSnippetBtn.Font = new Font("Segoe UI Semibold", 9F);
+        toggleSnippetBtn.ForeColor = Color.FromArgb(28, 28, 30);
+        toggleSnippetBtn.Location = new Point(180, 0);
+        toggleSnippetBtn.Name = "toggleSnippetBtn";
+        toggleSnippetBtn.Padding = new Padding(6, 0, 6, 0);
+        toggleSnippetBtn.Size = new Size(76, 22);
+        toggleSnippetBtn.TabIndex = 5;
+        toggleSnippetBtn.Text = "Snippet ▢";
+        toggleSnippetBtn.UseVisualStyleBackColor = false;
+        toggleSnippetBtn.Visible = false; // shown only when text panel is collapsed
         // 
         // preview
         // 
         preview.BackColor = Color.FromArgb(245, 245, 247);
         preview.BorderStyle = BorderStyle.FixedSingle;
         preview.Dock = DockStyle.Fill;
-        preview.Location = new Point(3, 52);
+        preview.Location = new Point(12, 88);
         preview.Name = "preview";
-        preview.Size = new Size(324, 225);
-        preview.SizeMode = PictureBoxSizeMode.Zoom;
-        preview.TabIndex = 2;
-        preview.TabStop = false;
+        preview.Size = new Size(256, 358);
+        preview.TabIndex = 1;
+        preview.ContextMenuStrip = previewCtx;
+
+        // 
+        // textContainer
+        // 
+        textContainer.BackColor = Color.FromArgb(255, 255, 255);
+        textContainer.Controls.Add(previewText);
+        textContainer.Controls.Add(textToolbar);
+        textContainer.Dock = DockStyle.Fill;
+        textContainer.Location = new Point(0, 0);
+        textContainer.Name = "textContainer";
+        textContainer.Padding = new Padding(12);
+        textContainer.Size = new Size(188, 458);
+        textContainer.TabIndex = 0;
+        // 
+        // textToolbar
+        // 
+        textToolbar.BackColor = Color.FromArgb(255, 255, 255);
+        textToolbar.Controls.Add(textTitleLbl);
+        textToolbar.Controls.Add(copyTextBtn);
+        textToolbar.Controls.Add(collapseTextBtn);
+        textToolbar.Dock = DockStyle.Top;
+        textToolbar.Location = new Point(12, 12);
+        textToolbar.Name = "textToolbar";
+        textToolbar.Size = new Size(164, 28);
+        textToolbar.TabIndex = 0;
+        // 
+        // textTitleLbl
+        // 
+        textTitleLbl.AutoSize = false;
+        textTitleLbl.Dock = DockStyle.Fill;
+        textTitleLbl.Font = new Font("Segoe UI Semibold", 10F);
+        textTitleLbl.ForeColor = Color.FromArgb(28, 28, 30);
+        textTitleLbl.Padding = new Padding(2, 4, 2, 0);
+        textTitleLbl.Name = "textTitleLbl";
+        textTitleLbl.TabIndex = 0;
+        textTitleLbl.Text = "Captured text";
+        // 
+        // copyTextBtn
+        // 
+        copyTextBtn.BackColor = Color.FromArgb(235, 235, 238);
+        copyTextBtn.Cursor = Cursors.Hand;
+        copyTextBtn.Dock = DockStyle.Right;
+        copyTextBtn.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 215);
+        copyTextBtn.FlatStyle = FlatStyle.Flat;
+        copyTextBtn.Font = new Font("Segoe UI Semibold", 9F);
+        copyTextBtn.ForeColor = Color.FromArgb(28, 28, 30);
+        copyTextBtn.Name = "copyTextBtn";
+        copyTextBtn.Padding = new Padding(6, 0, 6, 0);
+        copyTextBtn.Size = new Size(64, 28);
+        copyTextBtn.TabIndex = 1;
+        copyTextBtn.Text = "Copy";
+        copyTextBtn.UseVisualStyleBackColor = false;
+        // 
+        // collapseTextBtn
+        // 
+        collapseTextBtn.BackColor = Color.FromArgb(235, 235, 238);
+        collapseTextBtn.Cursor = Cursors.Hand;
+        collapseTextBtn.Dock = DockStyle.Right;
+        collapseTextBtn.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 215);
+        collapseTextBtn.FlatStyle = FlatStyle.Flat;
+        collapseTextBtn.Font = new Font("Segoe UI Semibold", 9F);
+        collapseTextBtn.ForeColor = Color.FromArgb(28, 28, 30);
+        collapseTextBtn.Name = "collapseTextBtn";
+        collapseTextBtn.Padding = new Padding(6, 0, 6, 0);
+        collapseTextBtn.Size = new Size(36, 28);
+        collapseTextBtn.TabIndex = 2;
+        collapseTextBtn.Text = "✕";
+        collapseTextBtn.UseVisualStyleBackColor = false;
         // 
         // previewText
         // 
@@ -383,20 +534,22 @@ partial class BrowsePanel
         previewText.Dock = DockStyle.Fill;
         previewText.Font = new Font("Cascadia Mono", 9.5F);
         previewText.ForeColor = Color.FromArgb(28, 28, 30);
-        previewText.Location = new Point(3, 283);
+        previewText.Location = new Point(12, 40);
         previewText.Multiline = true;
         previewText.Name = "previewText";
         previewText.ReadOnly = true;
         previewText.ScrollBars = ScrollBars.Vertical;
-        previewText.Size = new Size(324, 148);
-        previewText.TabIndex = 3;
+        previewText.Size = new Size(164, 406);
+        previewText.TabIndex = 1;
+        previewText.ContextMenuStrip = textCtx;
+
         // 
         // BrowsePanel
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.FromArgb(245, 245, 247);
-        Controls.Add(split);
+        Controls.Add(outerSplit);
         Controls.Add(topSpacer);
         Controls.Add(searchCard);
         Name = "BrowsePanel";
@@ -405,13 +558,20 @@ partial class BrowsePanel
         searchCard.ResumeLayout(false);
         searchCard.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)limitNud).EndInit();
-        split.Panel1.ResumeLayout(false);
-        split.Panel2.ResumeLayout(false);
-        ((System.ComponentModel.ISupportInitialize)split).EndInit();
-        split.ResumeLayout(false);
-        rightLayout.ResumeLayout(false);
-        rightLayout.PerformLayout();
-        ((System.ComponentModel.ISupportInitialize)preview).EndInit();
+        outerSplit.Panel1.ResumeLayout(false);
+        outerSplit.Panel2.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)outerSplit).EndInit();
+        outerSplit.ResumeLayout(false);
+        innerSplit.Panel1.ResumeLayout(false);
+        innerSplit.Panel2.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)innerSplit).EndInit();
+        innerSplit.ResumeLayout(false);
+        previewContainer.ResumeLayout(false);
+        previewToolbar.ResumeLayout(false);
+        previewToolbar.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)zoomBar).EndInit();
+        textContainer.ResumeLayout(false);
+        textToolbar.ResumeLayout(false);
         ResumeLayout(false);
     }
 
@@ -430,17 +590,32 @@ partial class BrowsePanel
     private System.Windows.Forms.Button refreshBtn;
     private System.Windows.Forms.Label resultsCountLbl;
     private System.Windows.Forms.Panel topSpacer;
-    private System.Windows.Forms.SplitContainer split;
+
+    private System.Windows.Forms.SplitContainer outerSplit;
+    private System.Windows.Forms.SplitContainer innerSplit;
+
     private System.Windows.Forms.ListView results;
     private System.Windows.Forms.ColumnHeader colWhen;
-    private System.Windows.Forms.ColumnHeader colApp;
     private System.Windows.Forms.ColumnHeader colTitle;
     private System.Windows.Forms.ColumnHeader colSnippet;
-    private System.Windows.Forms.ColumnHeader colImgKb;
-    private System.Windows.Forms.ColumnHeader colChars;
-    private System.Windows.Forms.TableLayoutPanel rightLayout;
+    private System.Windows.Forms.ColumnHeader colApp;
+
+    private System.Windows.Forms.Panel previewContainer;
+    private System.Windows.Forms.Panel previewToolbar;
     private System.Windows.Forms.Label previewTitleLbl;
     private System.Windows.Forms.Label previewMetaLbl;
-    private System.Windows.Forms.PictureBox preview;
+    private System.Windows.Forms.Label zoomCaptionLbl;
+    private System.Windows.Forms.TrackBar zoomBar;
+    private System.Windows.Forms.Label zoomValueLbl;
+    private System.Windows.Forms.Button toggleSnippetBtn;
+    private TotalRecall.ZoomablePicturePanel preview;
+    private System.Windows.Forms.ContextMenuStrip previewCtx;
+
+    private System.Windows.Forms.Panel textContainer;
+    private System.Windows.Forms.Panel textToolbar;
+    private System.Windows.Forms.Label textTitleLbl;
+    private System.Windows.Forms.Button copyTextBtn;
+    private System.Windows.Forms.Button collapseTextBtn;
     private System.Windows.Forms.TextBox previewText;
+    private System.Windows.Forms.ContextMenuStrip textCtx;
 }

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
@@ -27,30 +28,26 @@ public partial class BrowsePanel : UserControl
     private Database? db;
     private bool dirty = true;
     private List<SearchHit> hits = new();
+    private WindowDetail? currentDetail;
+    private int? lastInnerSplitterDistance;
 
     public BrowsePanel()
     {
         InitializeComponent();
         WireEvents();
+        WireZoom();
+        WireContextMenus();
     }
 
     private void WireEvents()
     {
         searchBox.KeyDown += (s, e) =>
         {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true;
-                _ = DoSearchAsync();
-            }
+            if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = DoSearchAsync(); }
         };
         appCombo.KeyDown += (s, e) =>
         {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true;
-                _ = DoSearchAsync();
-            }
+            if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = DoSearchAsync(); }
         };
         searchBtn.Click += async (_, _) => await DoSearchAsync();
         refreshBtn.Click += async (_, _) =>
@@ -66,8 +63,31 @@ public partial class BrowsePanel : UserControl
         };
         results.SelectedIndexChanged += async (_, _) => await UpdatePreviewAsync();
 
+        copyTextBtn.Click += (_, _) => CopyTextToClipboard();
+        collapseTextBtn.Click += (_, _) => CollapseTextPane();
+        toggleSnippetBtn.Click += (_, _) => RestoreTextPane();
+
         fromDate.Value = DateTime.Today.AddDays(-7);
         toDate.Value = DateTime.Today.AddDays(1);
+    }
+
+    private void WireZoom()
+    {
+        zoomBar.ValueChanged += (_, _) => ApplyZoomFromSlider();
+        preview.ZoomChanged += (_, _) => SyncSliderFromZoom();
+        ApplyZoomFromSlider();
+    }
+
+    private void WireContextMenus()
+    {
+        previewCtx.Items.Add(new ToolStripMenuItem("Open in default viewer", null, (_, _) => OpenPreviewExternal()));
+        previewCtx.Items.Add(new ToolStripMenuItem("Save image as…", null, (_, _) => SavePreviewAs()));
+        previewCtx.Items.Add(new ToolStripSeparator());
+        previewCtx.Items.Add(new ToolStripMenuItem("Fit to window (Ctrl+0)", null, (_, _) => preview.FitToWindow()));
+        previewCtx.Items.Add(new ToolStripMenuItem("100% (Ctrl+1)", null, (_, _) => preview.OneToOne()));
+
+        textCtx.Items.Add(new ToolStripMenuItem("Copy", null, (_, _) => CopyTextToClipboard()));
+        textCtx.Items.Add(new ToolStripMenuItem("Select all", null, (_, _) => { previewText.SelectAll(); previewText.Focus(); }));
     }
 
     public void AttachDatabase(Database? db)
@@ -85,6 +105,20 @@ public partial class BrowsePanel : UserControl
         dirty = false;
         ReloadAppFilter();
         _ = DoSearchAsync();
+    }
+
+    /// <summary>F5 / hamburger-Refresh: always re-run the search, even when not dirty.</summary>
+    public void ForceRefresh()
+    {
+        if (db == null) return;
+        ReloadAppFilter();
+        _ = DoSearchAsync();
+    }
+
+    public void FocusSearch()
+    {
+        searchBox.Focus();
+        searchBox.SelectAll();
     }
 
     private void ReloadAppFilter()
@@ -147,11 +181,9 @@ public partial class BrowsePanel : UserControl
             var item = new ListViewItem(new[]
             {
                 when,
-                h.AppName ?? "",
                 h.Title ?? "",
                 snippet,
-                (h.ImageBytes / 1024).ToString(),
-                h.TextLength.ToString(),
+                h.AppName ?? "",
             });
             item.Tag = h;
             results.Items.Add(item);
@@ -169,6 +201,7 @@ public partial class BrowsePanel : UserControl
         {
             var detail = await Task.Run(() => db.GetWindowDetail(hit.WindowId, includeImage: true));
             if (detail == null) { ClearPreview(); return; }
+            currentDetail = detail;
 
             previewTitleLbl.Text = $"{detail.AppName}   ·   {detail.Title}";
             previewMetaLbl.Text =
@@ -199,6 +232,7 @@ public partial class BrowsePanel : UserControl
 
     private void ClearPreview()
     {
+        currentDetail = null;
         previewTitleLbl.Text = "Select a result to preview";
         previewMetaLbl.Text = "";
         previewText.Text = "";
@@ -213,8 +247,129 @@ public partial class BrowsePanel : UserControl
         ClearPreview();
     }
 
-    private void searchBtn_Click(object sender, EventArgs e)
-    {
+    // --- Zoom plumbing --------------------------------------------------
 
+    // Maps zoomBar.Value (0..6) to ZoomablePicturePanel.ZoomPercent.
+    // 0 = Fit, 1 = 25, 2 = 50, 3 = 75, 4 = 100, 5 = 150, 6 = 200.
+    private static readonly int[] sliderToPercent = { 0, 25, 50, 75, 100, 150, 200 };
+
+    private void ApplyZoomFromSlider()
+    {
+        var v = Math.Clamp(zoomBar.Value, zoomBar.Minimum, zoomBar.Maximum);
+        var pct = sliderToPercent[v];
+        if (pct != preview.ZoomPercent) preview.ZoomPercent = pct;
+        zoomValueLbl.Text = pct == 0 ? "Fit" : $"{pct}%";
+    }
+
+    private void SyncSliderFromZoom()
+    {
+        int idx = Array.IndexOf(sliderToPercent, preview.ZoomPercent);
+        if (idx < 0) idx = 0;
+        if (zoomBar.Value != idx) zoomBar.Value = idx;
+        zoomValueLbl.Text = preview.ZoomPercent == 0 ? "Fit" : $"{preview.ZoomPercent}%";
+    }
+
+    public bool TryHandleShortcut(Keys keyData)
+    {
+        // Ctrl+0 → Fit, Ctrl+1 → 100%, Ctrl+Plus / Ctrl+OemPlus → in, Ctrl+Minus / Ctrl+OemMinus → out.
+        // F5 → refresh, Ctrl+F → focus search.
+        if ((keyData & Keys.Control) == Keys.Control)
+        {
+            var key = keyData & Keys.KeyCode;
+            switch (key)
+            {
+                case Keys.D0:
+                case Keys.NumPad0:
+                    preview.FitToWindow();
+                    return true;
+                case Keys.D1:
+                case Keys.NumPad1:
+                    preview.OneToOne();
+                    return true;
+                case Keys.Add:
+                case Keys.Oemplus:
+                    preview.ZoomIn();
+                    return true;
+                case Keys.Subtract:
+                case Keys.OemMinus:
+                    preview.ZoomOut();
+                    return true;
+                case Keys.F:
+                    FocusSearch();
+                    return true;
+            }
+        }
+        if (keyData == Keys.F5)
+        {
+            ForceRefresh();
+            return true;
+        }
+        return false;
+    }
+
+    // --- Collapse plumbing ----------------------------------------------
+
+    private void CollapseTextPane()
+    {
+        if (innerSplit.Panel2Collapsed) return;
+        lastInnerSplitterDistance = innerSplit.SplitterDistance;
+        innerSplit.Panel2Collapsed = true;
+        toggleSnippetBtn.Visible = true;
+    }
+
+    private void RestoreTextPane()
+    {
+        if (!innerSplit.Panel2Collapsed) return;
+        innerSplit.Panel2Collapsed = false;
+        if (lastInnerSplitterDistance is int d && d > innerSplit.Panel1MinSize)
+        {
+            try { innerSplit.SplitterDistance = d; } catch { /* layout race */ }
+        }
+        toggleSnippetBtn.Visible = false;
+    }
+
+    // --- Text / image actions -------------------------------------------
+
+    private void CopyTextToClipboard()
+    {
+        var txt = previewText.Text;
+        if (string.IsNullOrEmpty(txt)) return;
+        try { Clipboard.SetText(txt); } catch { /* clipboard can be temporarily locked */ }
+    }
+
+    private void OpenPreviewExternal()
+    {
+        if (currentDetail?.JpegBytes is not { Length: > 0 } bytes) return;
+        try
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"TotalRecall-preview-{currentDetail.WindowId}.jpg");
+            File.WriteAllBytes(path, bytes);
+            Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Could not open image: " + ex.Message, "TotalRecall",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void SavePreviewAs()
+    {
+        if (currentDetail?.JpegBytes is not { Length: > 0 } bytes) return;
+        using var dlg = new SaveFileDialog
+        {
+            Title = "Save screenshot",
+            Filter = "JPEG image (*.jpg)|*.jpg",
+            FileName = $"TotalRecall-{currentDetail.WindowId}.jpg",
+        };
+        if (dlg.ShowDialog(this) == DialogResult.OK)
+        {
+            try { File.WriteAllBytes(dlg.FileName, bytes); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Could not save image: " + ex.Message, "TotalRecall",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
     }
 }

@@ -6,7 +6,7 @@ First public release. A local, searchable, encrypted index of everything that ha
 
 - **100% on-device, no cloud, no telemetry.** Capture, OCR, storage, and search all run locally. No AI is in the loop unless *you* register the optional MCP server.
 - **Encrypted-at-rest** SQLite via SQLCipher (AES-256). Three key modes: none, DPAPI-protected (silent unlock under your Windows account), or passphrase (prompted at launch).
-- **WinForms desktop app** with three tabs: Capture, Browse, Settings. Light/dark friendly, system-tray, start-with-Windows.
+- **WinForms desktop app** — single-window layout with a compact capture bar in the header, a 3-pane Browse workspace (results · zoomable preview · collapsible text), and Activity Log / Settings as separate windows behind a hamburger menu. Light theme, system-tray, start-with-Windows.
 - **Full-text search** over years of activity via SQLite FTS5 with highlighted snippets.
 - **MCP server included** (`TotalRecall.Mcp.exe`) — 6 tools for AI agents (Microsoft Scout, GitHub Copilot CLI, Claude Desktop, any MCP-aware client).
 

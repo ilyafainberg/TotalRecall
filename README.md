@@ -303,7 +303,7 @@ All of the above are compatible with GPLv3 distribution.
 TotalRecall.sln
 ├── TotalRecall.Core/   class library — settings, key vault, DB schema, OCR,
 │                       window enumeration, screenshot, snapshot service
-├── TotalRecall/        WinForms UI (3 tabs, dark theme)
+├── TotalRecall/        WinForms UI (single-window: header + Browse, light theme)
 └── TotalRecall.Mcp/    stdio MCP server (6 tools)
 ```
 
@@ -400,11 +400,15 @@ Run the UI:
 .\TotalRecall\bin\x64\Release\net10.0-windows\TotalRecall.exe
 ```
 
-The UI has three tabs:
+The UI is a single window:
 
-- **Capture** — Start / Stop / Capture-now, live activity log, open-DB-folder button.
-- **Browse** — FTS5 search box, app filter, date-range, results grid, JPEG preview + full OCR text on the right.
-- **Settings** — capture interval, JPEG quality slider, store-JPEGs toggle, performance filters, DB path, OCR language, encryption mode + passphrase entry, retention + automatic compaction, **Start at login**, **Minimize to tray**.
+- **Header** — a compact capture bar with a live status pill (green dot ● *Recording* / gray ● *Idle*), interval/quality/encryption summary, the time + window count of the last snapshot, **Start** / **Stop** buttons, a **☰** hamburger menu, and **Quit**.
+- **Body (Browse)** — the three-pane workspace where you live:
+  1. **Results** — FTS5 search box + app filter + date range, sortable rows (When / Title / Snippet / App).
+  2. **Preview** — JPEG screenshot with a zoom slider (Fit · 25/50/75/100/150/200 %). Use **Ctrl+0** for Fit, **Ctrl+1** for 100 %, **Ctrl+** / **Ctrl-** to step, or **Ctrl+wheel**. Right-click → *Open in default viewer* / *Save image as…*.
+  3. **Captured text** — full OCR transcript in a collapsible, resizable pane. Hit **✕** to collapse it (Snippet button reappears in the preview toolbar to bring it back). Right-click → *Copy* / *Select all*.
+- **Hamburger menu (☰)** — Refresh results (**F5**), Activity log (**Ctrl+L**), Settings… (**Ctrl+,**), Open DB folder (**Ctrl+Shift+D**), About.
+- **Activity log** and **Settings** are separate non-modal windows you open from the hamburger.
 
 Settings live in `%LOCALAPPDATA%\TotalRecall\settings.json`. The default database path is `%LOCALAPPDATA%\TotalRecall\recall.db`.
 
@@ -413,7 +417,7 @@ Settings live in `%LOCALAPPDATA%\TotalRecall\settings.json`. The default databas
 Two settings under **Settings → Behavior** turn TotalRecall into a quiet background indexer:
 
 - **Start TotalRecall when I sign in to Windows** — writes (or removes) a per-user entry under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` so the app launches with `--minimized` at every login. No admin rights, no scheduled task, no service. Only affects the current Windows user.
-- **Minimize to system tray** — when on, the **X** button and the minimize button send the app to a tray icon instead of closing it. Right-click the tray icon for *Open / Start capture / Stop capture / Capture now / Exit*. Double-click to restore the window.
+- **Minimize to system tray** — when on, the **X** button and the minimize button send the app to a tray icon instead of closing it. Right-click the tray icon for *Open / Start capture / Stop capture / Exit*. Double-click to restore the window.
 
 When the app is launched with `--minimized` **and** tray mode is on, it starts hidden in the tray and **auto-starts capture** (so a fresh login immediately resumes indexing). With `--minimized` but tray mode off, it just opens minimized to the taskbar.
 
