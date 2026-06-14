@@ -154,13 +154,20 @@ public partial class MainForm : Form
             Font = Theme.UiFont,
             ShowImageMargin = false,
         };
-        hamburgerMenu.Items.Add(new ToolStripMenuItem("Refresh results\tF5", null, (_, _) => browsePanel.ForceRefresh()));
+        hamburgerMenu.Items.Add(MakeMenuItem("Refresh results",  "F5",           () => browsePanel.ForceRefresh()));
         hamburgerMenu.Items.Add(new ToolStripSeparator());
-        hamburgerMenu.Items.Add(new ToolStripMenuItem("Activity log\tCtrl+L", null, (_, _) => OpenActivityLog()));
-        hamburgerMenu.Items.Add(new ToolStripMenuItem("Settings…\tCtrl+,", null, (_, _) => OpenSettings()));
-        hamburgerMenu.Items.Add(new ToolStripMenuItem("Open DB folder\tCtrl+Shift+D", null, (_, _) => OpenDbFolder()));
+        hamburgerMenu.Items.Add(MakeMenuItem("Activity log",     "Ctrl+L",       OpenActivityLog));
+        hamburgerMenu.Items.Add(MakeMenuItem("Settings…",        "Ctrl+,",       OpenSettings));
+        hamburgerMenu.Items.Add(MakeMenuItem("Open DB folder",   "Ctrl+Shift+D", OpenDbFolder));
         hamburgerMenu.Items.Add(new ToolStripSeparator());
-        hamburgerMenu.Items.Add(new ToolStripMenuItem("About TotalRecall…", null, (_, _) => ShowAbout()));
+        hamburgerMenu.Items.Add(MakeMenuItem("About TotalRecall…", null,         ShowAbout));
+    }
+
+    private static ToolStripMenuItem MakeMenuItem(string text, string? shortcut, Action onClick)
+    {
+        var item = new ToolStripMenuItem(text, null, (_, _) => onClick());
+        if (!string.IsNullOrEmpty(shortcut)) item.ShortcutKeyDisplayString = shortcut;
+        return item;
     }
 
     private void OpenActivityLog()
