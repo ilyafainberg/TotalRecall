@@ -37,6 +37,11 @@ public sealed class ZoomablePicturePanel : Panel
     private int zoomPercent;     // 0 == Fit
     private bool inLayout;
 
+    // Click-and-drag panning state.
+    private bool isPanning;
+    private Point panStartScreen;
+    private Point panStartScroll;
+
     public event EventHandler? ZoomChanged;
 
     public ZoomablePicturePanel()
@@ -58,6 +63,16 @@ public sealed class ZoomablePicturePanel : Panel
         // Ctrl+wheel zoom; without Ctrl, let the panel scroll normally.
         MouseWheel += OnMouseWheel;
         pic.MouseWheel += OnMouseWheel;
+
+        // Click-and-drag panning (works on both the panel background and the picture).
+        pic.MouseDown += OnPanMouseDown;
+        pic.MouseMove += OnPanMouseMove;
+        pic.MouseUp   += OnPanMouseUp;
+        pic.MouseEnter += (_, _) => UpdatePanCursor();
+        MouseDown += OnPanMouseDown;
+        MouseMove += OnPanMouseMove;
+        MouseUp   += OnPanMouseUp;
+        MouseEnter += (_, _) => UpdatePanCursor();
     }
 
     [Browsable(false)]
@@ -129,6 +144,50 @@ public sealed class ZoomablePicturePanel : Panel
         if (sender is HandledMouseEventArgs h) h.Handled = true;
     }
 
+    /// <summary>True when the image is bigger than the viewport in either axis.</summary>
+    private bool CanPan()
+        => !IsFit && image != null
+           && (pic.Width > ClientSize.Width || pic.Height > ClientSize.Height);
+
+    private void UpdatePanCursor()
+    {
+        var target = isPanning ? Cursors.SizeAll
+                   : CanPan()   ? Cursors.Hand
+                                : Cursors.Default;
+        if (Cursor != target)    Cursor = target;
+        if (pic.Cursor != target) pic.Cursor = target;
+    }
+
+    private void OnPanMouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left || !CanPan()) return;
+        isPanning = true;
+        panStartScreen = Cursor.Position;
+        // AutoScrollPosition reads back as negative; remember the raw value so we
+        // can reconstruct an absolute scroll target during MouseMove.
+        panStartScroll = AutoScrollPosition;
+        ((Control)sender!).Capture = true;
+        UpdatePanCursor();
+    }
+
+    private void OnPanMouseMove(object? sender, MouseEventArgs e)
+    {
+        if (!isPanning) return;
+        var dx = Cursor.Position.X - panStartScreen.X;
+        var dy = Cursor.Position.Y - panStartScreen.Y;
+        // AutoScrollPosition flips sign on write, so invert and subtract the drag delta
+        // so the image follows the cursor (drag right → content moves right).
+        AutoScrollPosition = new Point(-panStartScroll.X - dx, -panStartScroll.Y - dy);
+    }
+
+    private void OnPanMouseUp(object? sender, MouseEventArgs e)
+    {
+        if (!isPanning) return;
+        isPanning = false;
+        ((Control)sender!).Capture = false;
+        UpdatePanCursor();
+    }
+
     private void ApplyLayout()
     {
         if (inLayout) return;
@@ -168,5 +227,6 @@ public sealed class ZoomablePicturePanel : Panel
             pic.Invalidate();
         }
         finally { inLayout = false; }
+        UpdatePanCursor();
     }
 }
