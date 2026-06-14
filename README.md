@@ -41,11 +41,26 @@ A single `setup.exe`, no admin/UAC, per-user install with a proper Add/Remove Pr
 
 The MCP server (`TotalRecall.Mcp.exe`) ships next to the main app in `<install dir>\McpServer\`.
 
-### Option 2 — Microsoft Store (MSIX) — *coming soon*
+### Option 2 — Portable ZIP
 
-A Store-signed MSIX is the cleanest install model on Windows: per-user, no admin, **no SmartScreen warning**, automatic updates. The Microsoft Store listing is in flight; once approved, this section will link directly to it.
+If you prefer to control where the app lives (e.g. on a USB stick or under `C:\Tools\`), grab the portable ZIP — no install, no Start Menu entry, no Add/Remove Programs entry. Self-contained, no .NET runtime required.
 
-In the meantime, if you want to build and sideload the MSIX yourself, see [MSIX.md](MSIX.md) for the local build script and the Partner Center submission walkthrough.
+1. Download **`TotalRecall-1.0.0-Portable-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
+2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall\`). Don't run from Downloads — the MCP path you wire into your AI agent must be permanent.
+3. Run `TotalRecall\TotalRecall.exe`.
+
+The portable ZIP layout:
+
+```
+TotalRecall-1.0.0-Portable-win-x64\
+├─ TotalRecall\
+│  └─ TotalRecall.exe          ← the desktop app
+├─ TotalRecall.Mcp\
+│  └─ TotalRecall.Mcp.exe      ← the MCP server (see "MCP server setup" below)
+├─ README.md
+├─ INSTALL.txt
+└─ LICENSE
+```
 
 ### Option 3 — MCP server only (no desktop app)
 
@@ -65,7 +80,7 @@ The bundle also ships an `INSTALL-WITH-AGENT.md` with a one-shot prompt you can 
 
 All packages are **self-contained** — no separate .NET runtime installation required.
 
-> **About the SmartScreen warning:** until the binaries are Authenticode-signed, Windows SmartScreen will warn on first launch of the Inno Setup option. The Microsoft Store path will avoid this entirely once the listing is approved.
+> **About the SmartScreen warning:** until the binaries are Authenticode-signed, Windows SmartScreen will warn on first launch for both the Inno Setup installer and the Portable ZIP — click **More info → Run anyway**.
 
 ### Command-line flags
 
