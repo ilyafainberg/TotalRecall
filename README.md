@@ -192,7 +192,7 @@ Treat the database accordingly. There is no allow-list / block-list yet for whic
 
 > Most users should just grab the [release ZIP](#install) — this section is for contributors.
 
-Prerequisites: **.NET 10 SDK** (preview or later), Windows 10/11 x64.
+Prerequisites: **.NET 10 SDK**, Windows 10/11 x64.
 
 ```powershell
 git clone https://github.com/ilyafainberg/TotalRecall.git

@@ -51,7 +51,7 @@ All packages are **self-contained** (no .NET runtime needed). The Inno Setup opt
 ## Known caveats
 
 - DRM-protected video surfaces and some hardware-accelerated games come back as black frames from `PrintWindow`. Metadata is still recorded.
-- .NET 10 is currently in preview. The self-contained ZIP doesn't depend on it being installed; building from source does.
+- The self-contained ZIP includes the .NET 10 runtime — nothing else to install. Building from source requires the .NET 10 SDK.
 - App allow-list / block-list isn't implemented yet — if you don't want a window captured, minimize it or pause capture.
 
 ## Thanks
