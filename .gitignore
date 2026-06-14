@@ -43,3 +43,11 @@ local.settings.json
 TotalRecall-*.zip
 installer/Output/
 installer/*.exe
+
+## SDK build tools (downloaded NuGet, ~70 MB extracted)
+tools/sdk-buildtools/
+
+## MSIX build outputs (uploaded as release assets)
+msix/*.msix
+msix/*.cer
+msix/*.pfx

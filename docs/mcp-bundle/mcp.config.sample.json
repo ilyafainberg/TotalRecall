@@ -1,0 +1,12 @@
+{
+  "_comment": "Drop the entries under 'mcpServers' into your host's mcp-config.json. Update the 'command' path to wherever you extracted this bundle.",
+  "mcpServers": {
+    "totalrecall": {
+      "command": "C:\\Tools\\TotalRecall.Mcp\\TotalRecall.Mcp.exe",
+      "args": [],
+      "env": {
+        "TOTALRECALL_DB_PATH": "C:\\Users\\<you>\\AppData\\Local\\TotalRecall\\totalrecall.db"
+      }
+    }
+  }
+}

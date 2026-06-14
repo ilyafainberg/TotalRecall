@@ -27,7 +27,7 @@ The vision is a personal, private "computer memory" — Microsoft Recall, but op
 
 ## Install
 
-Three install options — pick whichever you prefer:
+Three install options for the full desktop app, plus a fourth for just the MCP server — pick whichever you prefer:
 
 ### Option 1 — Inno Setup installer 🟢 *recommended*
 
@@ -41,36 +41,38 @@ A single `setup.exe`, no admin/UAC, per-user install with a proper Add/Remove Pr
 
 The MCP server (`TotalRecall.Mcp.exe`) ships next to the main app in `<install dir>\McpServer\`.
 
-### Option 2 — ClickOnce installer
+### Option 2 — MSIX package (sideload / Microsoft Store)
 
-Per-user install with automatic updates from the GitHub release (the app checks at launch).
+The cleanest install model on Windows. Per-user, no admin, no SmartScreen warning *once* the package is signed by a Microsoft-trusted certificate. The current release ships an MSIX **self-signed** with `CN=Ilya Fainberg` for sideload testing; a Store-signed build will land here once the Microsoft Store listing is approved.
 
-1. Download **`TotalRecall-1.0.0-ClickOnce.zip`**.
-2. Extract anywhere temporary, double-click `setup.exe`. *More info → Run anyway* on the SmartScreen warning.
-3. The app installs into `%LOCALAPPDATA%\Apps\2.0\…\` and a Start Menu shortcut is created.
+1. Download both **`TotalRecall-1.0.0.0.msix`** and **`TotalRecall-SelfSigned.cer`** from the release page.
+2. In an **admin** PowerShell window, trust the self-signed cert:
+   ```powershell
+   Import-Certificate -FilePath .\TotalRecall-SelfSigned.cer `
+                      -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+   ```
+3. In any user PowerShell window, install the package:
+   ```powershell
+   Add-AppxPackage -Path .\TotalRecall-1.0.0.0.msix
+   ```
+4. Launch *TotalRecall* from the Start Menu. To uninstall:
+   ```powershell
+   Get-AppxPackage IlyaFainberg.TotalRecall | Remove-AppxPackage
+   ```
 
-The MCP path is hash-based and changes between updates; launch TotalRecall and check the activity log on the Capture tab — the path is printed at startup.
+The MCP server is registered as a global **App Execution Alias** named `totalrecall-mcp.exe` — after install, `where totalrecall-mcp.exe` resolves from any shell, so MCP hosts can launch it without knowing the locked-down `%PROGRAMFILES%\WindowsApps\…` install path.
 
-### Option 3 — Portable ZIP
+See [MSIX.md](MSIX.md) for full build details and the Microsoft Store submission walkthrough.
 
-If you prefer to control where the app lives (e.g. on a USB stick or under `C:\Tools\`), grab the portable ZIP — no install, no Start Menu entry, no Add/Remove Programs entry.
+### Option 3 — MCP server only (no desktop app)
 
-1. Download **`TotalRecall-1.0.0-win-x64.zip`**.
-2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall\`). Don't run from Downloads — the MCP path you wire into your AI agent must be permanent.
-3. Run `TotalRecall\TotalRecall.exe`.
+Just want the AI-agent integration and not the capture UI? Grab the standalone MCP bundle. Useful if you already have a TotalRecall database on the machine (from a previous install, or from another user) and only need the server to expose it.
 
-The portable ZIP layout:
+1. Download **`TotalRecall-Mcp-1.0.0-win-x64.zip`** from the release page.
+2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall.Mcp\`).
+3. Wire it into your MCP host — see the bundle's own `README.md` for snippets covering Microsoft Scout, GitHub Copilot CLI, Claude Desktop, VS Code Copilot Chat, and Cursor.
 
-```
-TotalRecall-1.0.0-win-x64\
-├─ TotalRecall\
-│  └─ TotalRecall.exe          ← the desktop app
-├─ TotalRecall.Mcp\
-│  └─ TotalRecall.Mcp.exe      ← the MCP server (see "MCP server setup" below)
-├─ README.md
-├─ INSTALL.txt
-└─ LICENSE
-```
+The bundle also ships an `INSTALL-WITH-AGENT.md` with a one-shot prompt you can paste into any AI agent that has shell + file-edit tools — the agent will download, extract, and merge the config into the right `mcp-config.json` for you. See [MCP server setup](#mcp-server-setup) below for both the manual walk-through and the agent-prompt path.
 
 ### First-run setup (any option)
 
@@ -78,9 +80,9 @@ TotalRecall-1.0.0-win-x64\
 2. On the **Capture** tab, click **Start**.
 3. (Optional) Wire `TotalRecall.Mcp.exe` into your AI agent — see [MCP server setup](#mcp-server-setup) for Microsoft Scout, GitHub Copilot CLI, and Claude Desktop wiring.
 
-All three packages are **self-contained** — no separate .NET runtime installation required.
+All packages are **self-contained** — no separate .NET runtime installation required.
 
-> **About the SmartScreen warning:** until the binaries are Authenticode-signed, Windows SmartScreen will warn on first launch. Microsoft Store (MSIX) submission is in progress; once approved, that channel will install without any warning.
+> **About the SmartScreen warning:** until the binaries are Authenticode-signed, Windows SmartScreen will warn on first launch of the Inno Setup option. The MSIX option avoids this *once* the cert is trusted (manual step today; automatic after the Microsoft Store listing is approved).
 
 ### Command-line flags
 
@@ -286,6 +288,70 @@ The MCP server reads `%LOCALAPPDATA%\TotalRecall\settings.json` to find the DB p
 |---|---|
 | `--db <path>` / `TOTALRECALL_DB` | Override the database path |
 | `--passphrase <s>` / `TOTALRECALL_PASSPHRASE` | Supply a passphrase (required if you use passphrase encryption) |
+
+### Two ways to install the MCP server
+
+You can install the MCP server **as part of the full TotalRecall desktop app** (options 1–4 above all ship it), or **on its own** from the standalone bundle (option 5). The standalone bundle is useful when:
+
+- You're configuring an AI assistant on a machine where TotalRecall is already running but you don't want to install the desktop app twice.
+- You're indexing a database that lives on a shared drive / NAS.
+- You want to register the MCP server with a remote/CI agent host that doesn't need the GUI.
+
+#### Manual install of the standalone bundle
+
+1. Download **`TotalRecall-Mcp-1.0.0-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
+2. Extract to a **stable** path (e.g. `C:\Tools\TotalRecall.Mcp\`). The .exe must end up at `C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe`.
+3. Smoke-test the binary:
+   ```powershell
+   C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe --help
+   ```
+4. Open the bundle's own **`README.md`** for copy-paste config snippets for each host (Microsoft Scout, GitHub Copilot CLI, Claude Desktop, VS Code, Cursor) — or use the templates in [Registering with an AI assistant](#registering-with-an-ai-assistant) below.
+
+#### One-shot agent install
+
+If you're already in an AI agent session (Microsoft Scout, GitHub Copilot CLI, Claude Code, Cursor, …), you can hand it the install job. Paste the prompt below verbatim into a fresh agent turn — the agent will download the zip, extract it, sanity-check the binary, and merge a `"totalrecall"` entry into the right `mcp-config.json` for whichever host you're running:
+
+```
+You're going to install the TotalRecall MCP server on this Windows machine. Do all of the following without asking for confirmation between steps:
+
+1. Download the latest TotalRecall MCP zip from the GitHub release:
+     https://github.com/ilyafainberg/TotalRecall/releases/latest
+   The asset name pattern is:  TotalRecall-Mcp-<version>-win-x64.zip
+   Use the GitHub API (https://api.github.com/repos/ilyafainberg/TotalRecall/releases/latest) if you need to resolve the exact URL. Save it to %TEMP%.
+
+2. Extract the zip into a stable per-user install dir:
+     %LOCALAPPDATA%\Programs\TotalRecall.Mcp\
+   Overwrite if it already exists. After extraction the server binary must be at:
+     %LOCALAPPDATA%\Programs\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe
+
+3. Sanity-check the server: run the .exe once with `--help` and confirm it prints a tools list without crashing. If it crashes, surface stderr to me and stop.
+
+4. Detect which MCP host I'm running on (you are the agent — pick the right one):
+   - Microsoft Scout / Clawpilot →  %USERPROFILE%\.clawpilot\mcp-config.json
+   - GitHub Copilot CLI          →  %USERPROFILE%\.copilot\mcp-config.json
+   - Claude Desktop              →  %APPDATA%\Claude\claude_desktop_config.json
+   - VS Code Copilot Chat        →  %APPDATA%\Code\User\settings.json
+                                    (key: github.copilot.chat.mcp.servers)
+   - Cursor                      →  %USERPROFILE%\.cursor\mcp.json
+
+   Read the existing file (or create it if missing) and merge — DO NOT replace — an entry under the appropriate "mcpServers" key:
+
+     "totalrecall": {
+       "command": "<full path to the .exe you installed in step 2>",
+       "args": [],
+       "env": {
+         "TOTALRECALL_DB_PATH": "<%LOCALAPPDATA%>\\TotalRecall\\totalrecall.db"
+       }
+     }
+
+   Preserve any other mcpServers already in the file. Pretty-print the JSON.
+
+5. Tell me which host you configured, the absolute path to the installed .exe, whether the TotalRecall DB at TOTALRECALL_DB_PATH already exists, and that I need to restart the host before the server shows up.
+
+If anything goes wrong, stop and tell me what failed.
+```
+
+The bundle's own `INSTALL-WITH-AGENT.md` ships the same prompt and a "Why it's safe to paste" rundown — share that with anyone who wants a second opinion before running it.
 
 ### Registering with an AI assistant
 

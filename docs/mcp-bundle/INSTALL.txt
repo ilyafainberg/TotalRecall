@@ -1,0 +1,13 @@
+TotalRecall MCP Server - Quick Install
+=======================================
+
+1. Extract this ZIP somewhere stable, e.g.  C:\Tools\TotalRecall.Mcp\
+2. Open README.md and copy the JSON snippet for your MCP host
+   (Microsoft Scout / GitHub Copilot CLI / Claude Desktop / VS Code).
+3. Paste the snippet into your host's mcp-config.json and update the
+   "command" path so it matches where you extracted the .exe.
+4. Restart the host. Done.
+
+For an end-to-end agent-driven install, paste the prompt in
+INSTALL-WITH-AGENT.md into any capable AI agent that has shell + file-edit
+tools (Microsoft Scout, GitHub Copilot CLI, Claude Code, Cursor, etc.).

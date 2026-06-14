@@ -24,6 +24,8 @@ $artifactsDir = Join-Path $root 'artifacts'
 $zipPath      = Join-Path $root "TotalRecall-$Version-$rid.zip"
 $clickOnceZip = Join-Path $root "TotalRecall-$Version-ClickOnce.zip"
 $innoSetup    = Join-Path $root "installer\Output\TotalRecall-$Version-Setup.exe"
+$mcpZip       = Join-Path $root "TotalRecall-Mcp-$Version-$rid.zip"
+$msixPath     = Join-Path $root "artifacts\msix\TotalRecall-$Version.0.msix"
 $iscc         = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 
 Write-Host "TotalRecall release builder" -ForegroundColor Cyan
@@ -184,3 +186,52 @@ $inMb = [math]::Round((Get-Item $innoSetup).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Done (Inno Setup)." -ForegroundColor Green
 Write-Host "  setup.exe : $innoSetup ($inMb MB)"
+
+
+# --- 8. Standalone MCP server ZIP ---------------------------------------------
+Write-Host ""
+Write-Host "Packaging standalone MCP server..." -ForegroundColor Cyan
+$mcpStaged = Join-Path $stagingRoot 'TotalRecall.Mcp'
+if (-not (Test-Path $mcpStaged)) {
+    Write-Host "  MCP staging dir not found at $mcpStaged - skipping MCP zip." -ForegroundColor Yellow
+} else {
+    $mcpBundleDir = Join-Path $root "artifacts\mcp-bundle"
+    if (Test-Path $mcpBundleDir) { Remove-Item $mcpBundleDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $mcpBundleDir -Force | Out-Null
+
+    # MCP binaries
+    Copy-Item $mcpStaged (Join-Path $mcpBundleDir 'TotalRecall.Mcp') -Recurse
+
+    # Bundle MCP docs + sample config (created out-of-band in docs\mcp-bundle\)
+    $mcpDocsSrc = Join-Path $root 'docs\mcp-bundle'
+    if (Test-Path $mcpDocsSrc) {
+        Get-ChildItem $mcpDocsSrc -File | ForEach-Object {
+            Copy-Item $_.FullName -Destination $mcpBundleDir
+        }
+    }
+    Copy-Item (Join-Path $root 'LICENSE') (Join-Path $mcpBundleDir 'LICENSE') -ErrorAction SilentlyContinue
+
+    if (Test-Path $mcpZip) { Remove-Item $mcpZip -Force }
+    Write-Host "Compressing MCP -> $mcpZip" -ForegroundColor Yellow
+    Compress-Archive -Path "$mcpBundleDir\*" -DestinationPath $mcpZip -CompressionLevel Optimal -Force
+
+    $mcpMb = [math]::Round((Get-Item $mcpZip).Length / 1MB, 1)
+    Write-Host ""
+    Write-Host "Done (MCP server)." -ForegroundColor Green
+    Write-Host "  ZIP : $mcpZip ($mcpMb MB)"
+}
+
+# --- 9. MSIX package ----------------------------------------------------------
+Write-Host ""
+Write-Host "Building MSIX package..." -ForegroundColor Cyan
+$msixScript = Join-Path $root 'msix\Build-Msix.ps1'
+if (-not (Test-Path $msixScript)) {
+    Write-Host "  msix\Build-Msix.ps1 not found - skipping MSIX build." -ForegroundColor Yellow
+} else {
+    & $msixScript -Version "$Version.0" -Sign
+    if ($LASTEXITCODE -ne 0) { Write-Host "  MSIX build failed - continuing." -ForegroundColor Yellow }
+    elseif (Test-Path $msixPath) {
+        $msixMb = [math]::Round((Get-Item $msixPath).Length / 1MB, 1)
+        Write-Host "  MSIX : $msixPath ($msixMb MB)"
+    }
+}
