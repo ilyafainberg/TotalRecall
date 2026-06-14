@@ -22,10 +22,15 @@ partial class MainForm
     private void InitializeComponent()
     {
         headerPanel = new Panel();
-        titleLbl = new Label();
-        captureBar = new CaptureBar();
         menuBtn = new Button();
         quitBtn = new Button();
+        capDotLbl = new Label();
+        capStateLbl = new Label();
+        capInfoLbl = new Label();
+        capLastLbl = new Label();
+        capStartBtn = new Button();
+        capStopBtn = new Button();
+        titleLbl = new Label();
         browsePanel = new BrowsePanel();
         statusPanel = new Panel();
         dbLbl = new Label();
@@ -37,36 +42,21 @@ partial class MainForm
         // headerPanel
         // 
         headerPanel.BackColor = Color.FromArgb(235, 235, 238);
-        headerPanel.Controls.Add(captureBar);
-        headerPanel.Controls.Add(titleLbl);
         headerPanel.Controls.Add(menuBtn);
         headerPanel.Controls.Add(quitBtn);
+        headerPanel.Controls.Add(capStartBtn);
+        headerPanel.Controls.Add(capStopBtn);
+        headerPanel.Controls.Add(capLastLbl);
+        headerPanel.Controls.Add(capInfoLbl);
+        headerPanel.Controls.Add(capStateLbl);
+        headerPanel.Controls.Add(capDotLbl);
+        headerPanel.Controls.Add(titleLbl);
         headerPanel.Dock = DockStyle.Top;
         headerPanel.Location = new Point(0, 0);
         headerPanel.Name = "headerPanel";
         headerPanel.Padding = new Padding(16, 8, 16, 8);
         headerPanel.Size = new Size(1484, 72);
         headerPanel.TabIndex = 2;
-        // 
-        // titleLbl
-        // 
-        titleLbl.AutoSize = true;
-        titleLbl.Font = new Font("Segoe UI Semibold", 13F);
-        titleLbl.ForeColor = Color.FromArgb(28, 28, 30);
-        titleLbl.Location = new Point(16, 22);
-        titleLbl.Name = "titleLbl";
-        titleLbl.Size = new Size(98, 24);
-        titleLbl.TabIndex = 0;
-        titleLbl.Text = "TotalRecall";
-        // 
-        // captureBar
-        // 
-        captureBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        captureBar.BackColor = Color.FromArgb(235, 235, 238);
-        captureBar.Location = new Point(150, 8);
-        captureBar.Name = "captureBar";
-        captureBar.Size = new Size(1140, 56);
-        captureBar.TabIndex = 1;
         // 
         // menuBtn
         // 
@@ -77,10 +67,9 @@ partial class MainForm
         menuBtn.FlatStyle = FlatStyle.Flat;
         menuBtn.Font = new Font("Segoe UI Symbol", 12F);
         menuBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        menuBtn.Location = new Point(1300, 18);
+        menuBtn.Location = new Point(1278, 15);
         menuBtn.Name = "menuBtn";
-        menuBtn.Padding = new Padding(0);
-        menuBtn.Size = new Size(40, 36);
+        menuBtn.Size = new Size(40, 32);
         menuBtn.TabIndex = 2;
         menuBtn.Text = "☰";
         menuBtn.UseVisualStyleBackColor = false;
@@ -94,13 +83,104 @@ partial class MainForm
         quitBtn.FlatStyle = FlatStyle.Flat;
         quitBtn.Font = new Font("Segoe UI Semibold", 9.5F);
         quitBtn.ForeColor = Color.FromArgb(196, 43, 28);
-        quitBtn.Location = new Point(1352, 18);
+        quitBtn.Location = new Point(1324, 15);
         quitBtn.Name = "quitBtn";
         quitBtn.Padding = new Padding(8, 0, 8, 0);
-        quitBtn.Size = new Size(96, 36);
+        quitBtn.Size = new Size(96, 32);
         quitBtn.TabIndex = 3;
         quitBtn.Text = "✕  Quit";
         quitBtn.UseVisualStyleBackColor = false;
+        // 
+        // capDotLbl
+        // 
+        capDotLbl.AutoSize = true;
+        capDotLbl.Font = new Font("Segoe UI Symbol", 14F);
+        capDotLbl.ForeColor = Color.FromArgb(170, 170, 178);
+        capDotLbl.Location = new Point(160, 14);
+        capDotLbl.Name = "capDotLbl";
+        capDotLbl.Size = new Size(28, 25);
+        capDotLbl.TabIndex = 4;
+        capDotLbl.Text = "●";
+        // 
+        // capStateLbl
+        // 
+        capStateLbl.AutoSize = true;
+        capStateLbl.Font = new Font("Segoe UI Semibold", 10.5F);
+        capStateLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        capStateLbl.Location = new Point(184, 17);
+        capStateLbl.Name = "capStateLbl";
+        capStateLbl.Size = new Size(32, 19);
+        capStateLbl.TabIndex = 5;
+        capStateLbl.Text = "Idle";
+        // 
+        // capInfoLbl
+        // 
+        capInfoLbl.AutoSize = true;
+        capInfoLbl.Font = new Font("Segoe UI", 9F);
+        capInfoLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        capInfoLbl.Location = new Point(164, 44);
+        capInfoLbl.Name = "capInfoLbl";
+        capInfoLbl.Size = new Size(19, 15);
+        capInfoLbl.TabIndex = 6;
+        capInfoLbl.Text = "—";
+        // 
+        // capLastLbl
+        // 
+        capLastLbl.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        capLastLbl.Font = new Font("Segoe UI", 9F);
+        capLastLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        capLastLbl.Location = new Point(794, 44);
+        capLastLbl.Name = "capLastLbl";
+        capLastLbl.Size = new Size(280, 19);
+        capLastLbl.TabIndex = 7;
+        capLastLbl.Text = "Last: —";
+        capLastLbl.TextAlign = ContentAlignment.MiddleRight;
+        // 
+        // capStartBtn
+        // 
+        capStartBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        capStartBtn.BackColor = Color.FromArgb(76, 154, 255);
+        capStartBtn.Cursor = Cursors.Hand;
+        capStartBtn.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 215);
+        capStartBtn.FlatStyle = FlatStyle.Flat;
+        capStartBtn.Font = new Font("Segoe UI Semibold", 9.5F);
+        capStartBtn.ForeColor = Color.White;
+        capStartBtn.Location = new Point(1086, 15);
+        capStartBtn.Name = "capStartBtn";
+        capStartBtn.Padding = new Padding(8, 0, 8, 0);
+        capStartBtn.Size = new Size(96, 32);
+        capStartBtn.TabIndex = 8;
+        capStartBtn.Text = "▶  Start";
+        capStartBtn.UseVisualStyleBackColor = false;
+        // 
+        // capStopBtn
+        // 
+        capStopBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        capStopBtn.BackColor = Color.FromArgb(235, 235, 238);
+        capStopBtn.Cursor = Cursors.Hand;
+        capStopBtn.Enabled = false;
+        capStopBtn.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 215);
+        capStopBtn.FlatStyle = FlatStyle.Flat;
+        capStopBtn.Font = new Font("Segoe UI Semibold", 9.5F);
+        capStopBtn.ForeColor = Color.FromArgb(28, 28, 30);
+        capStopBtn.Location = new Point(1188, 15);
+        capStopBtn.Name = "capStopBtn";
+        capStopBtn.Padding = new Padding(8, 0, 8, 0);
+        capStopBtn.Size = new Size(80, 32);
+        capStopBtn.TabIndex = 9;
+        capStopBtn.Text = "■  Stop";
+        capStopBtn.UseVisualStyleBackColor = false;
+        // 
+        // titleLbl
+        // 
+        titleLbl.AutoSize = true;
+        titleLbl.Font = new Font("Segoe UI Semibold", 13F);
+        titleLbl.ForeColor = Color.FromArgb(28, 28, 30);
+        titleLbl.Location = new Point(16, 22);
+        titleLbl.Name = "titleLbl";
+        titleLbl.Size = new Size(100, 25);
+        titleLbl.TabIndex = 0;
+        titleLbl.Text = "TotalRecall";
         // 
         // browsePanel
         // 
@@ -144,7 +224,6 @@ partial class MainForm
         statusLbl.Padding = new Padding(12, 0, 12, 0);
         statusLbl.Size = new Size(420, 24);
         statusLbl.TabIndex = 1;
-        statusLbl.Text = "";
         statusLbl.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // MainForm
@@ -171,7 +250,12 @@ partial class MainForm
 
     private System.Windows.Forms.Panel headerPanel;
     private System.Windows.Forms.Label titleLbl;
-    private TotalRecall.CaptureBar captureBar;
+    private System.Windows.Forms.Label capDotLbl;
+    private System.Windows.Forms.Label capStateLbl;
+    private System.Windows.Forms.Label capInfoLbl;
+    private System.Windows.Forms.Label capLastLbl;
+    private System.Windows.Forms.Button capStartBtn;
+    private System.Windows.Forms.Button capStopBtn;
     private System.Windows.Forms.Button menuBtn;
     private System.Windows.Forms.Button quitBtn;
     private TotalRecall.BrowsePanel browsePanel;

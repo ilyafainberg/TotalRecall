@@ -91,14 +91,14 @@ public partial class MainForm : Form
             WindowState = FormWindowState.Minimized;
         }
 
-        captureBar.BindSettings(settings);
+        RefreshCaptureSummary();
 
-        captureBar.StartClicked += async (_, _) =>
+        capStartBtn.Click += async (_, _) =>
         {
             await StartAsync();
             PersistCaptureIntent(true);
         };
-        captureBar.StopClicked += (_, _) =>
+        capStopBtn.Click += (_, _) =>
         {
             Stop();
             PersistCaptureIntent(false);
@@ -189,7 +189,7 @@ public partial class MainForm : Form
             settingsForm.SettingsSaved += (_, _) =>
             {
                 DisposeServices();
-                captureBar.RefreshFromSettings();
+                RefreshCaptureSummary();
                 UpdateDbLabel();
                 TryAttachExistingDatabase();
                 lastRetentionUtc = DateTime.MinValue;
@@ -363,6 +363,25 @@ public partial class MainForm : Form
 
     // --- Capture lifecycle ---------------------------------------------
 
+    private void RefreshCaptureSummary()
+    {
+        if (settings == null) return;
+        var mode = settings.CaptureForegroundOnly ? "foreground" : "all windows";
+        var change = settings.EnableChangeDetection ? "  ·  skip unchanged" : "";
+        var store = settings.StoreScreenshots ? "stored" : "OCR only";
+        capInfoLbl.Text =
+            $"Every {settings.IntervalSeconds}s  ·  JPEG q{settings.JpegQuality} ({store})  ·  {mode}{change}  ·  enc={settings.EncryptionMode}";
+    }
+
+    private void SetCaptureRunningState(bool running)
+    {
+        capDotLbl.ForeColor = running ? Theme.Ok : Color.FromArgb(170, 170, 178);
+        capStateLbl.Text = running ? "Recording" : "Idle";
+        capStateLbl.ForeColor = running ? Theme.Ok : Theme.FgMuted;
+        capStartBtn.Enabled = !running;
+        capStopBtn.Enabled  = running;
+    }
+
     private async Task StartAsync()
     {
         if (settings == null) return;
@@ -374,7 +393,7 @@ public partial class MainForm : Form
         }
         cts = new CancellationTokenSource();
         var intervalMs = settings.IntervalSeconds * 1000;
-        captureBar.SetRunningState(true);
+        SetCaptureRunningState(true);
         UpdateTrayMenuState(true);
         SetStatus($"Running. Interval = {settings.IntervalSeconds}s");
         LogSink.Log($"Started. Interval = {settings.IntervalSeconds}s, JPEG q={settings.JpegQuality}, encryption={settings.EncryptionMode}");
@@ -385,7 +404,7 @@ public partial class MainForm : Form
     private void Stop()
     {
         try { timer?.Dispose(); timer = null; cts?.Cancel(); } catch { }
-        captureBar.SetRunningState(false);
+        SetCaptureRunningState(false);
         UpdateTrayMenuState(false);
         SetStatus("");
         LogSink.Log("Stopped.");
@@ -408,8 +427,8 @@ public partial class MainForm : Form
             try
             {
                 var lastLine = $"Last: {DateTime.Now:HH:mm:ss}  ·  {result.StoredWindowCount}/{result.WindowCount} stored";
-                if (InvokeRequired) BeginInvoke(() => captureBar.SetLastSnapshot(lastLine));
-                else captureBar.SetLastSnapshot(lastLine);
+                if (InvokeRequired) BeginInvoke(() => capLastLbl.Text = lastLine);
+                else capLastLbl.Text = lastLine;
             }
             catch { }
             UpdateDbLabel();

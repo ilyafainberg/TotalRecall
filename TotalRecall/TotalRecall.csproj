@@ -23,7 +23,6 @@
   <ItemGroup>
     <None Include="app.ico" />
     <None Include="app.svg" />
-    <None Include="make-icon.ps1" />
   </ItemGroup>
 
   <!--
@@ -33,8 +32,7 @@
     and these Content items pull the result into a McpServer\ subfolder of the app.
   -->
   <ItemGroup>
-    <Content Include="..\TotalRecall.Mcp\bin\$(Configuration)\$(TargetFramework)\win-x64\publish\**\*"
-             Condition="Exists('..\TotalRecall.Mcp\bin\$(Configuration)\$(TargetFramework)\win-x64\publish')">
+    <Content Include="..\TotalRecall.Mcp\bin\$(Configuration)\$(TargetFramework)\win-x64\publish\**\*" Condition="Exists('..\TotalRecall.Mcp\bin\$(Configuration)\$(TargetFramework)\win-x64\publish')">
       <Link>McpServer\%(RecursiveDir)%(FileName)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
