@@ -27,7 +27,7 @@ The vision is a personal, private "computer memory" — Microsoft Recall, but op
 
 ## Install
 
-Three install options for the full desktop app, plus a fourth for just the MCP server — pick whichever you prefer:
+Two install options for the full desktop app, plus a third for just the MCP server — pick whichever you prefer:
 
 ### Option 1 — Inno Setup installer 🟢 *recommended*
 
@@ -41,28 +41,11 @@ A single `setup.exe`, no admin/UAC, per-user install with a proper Add/Remove Pr
 
 The MCP server (`TotalRecall.Mcp.exe`) ships next to the main app in `<install dir>\McpServer\`.
 
-### Option 2 — MSIX package (sideload / Microsoft Store)
+### Option 2 — Microsoft Store (MSIX) — *coming soon*
 
-The cleanest install model on Windows. Per-user, no admin, no SmartScreen warning *once* the package is signed by a Microsoft-trusted certificate. The current release ships an MSIX **self-signed** with `CN=Ilya Fainberg` for sideload testing; a Store-signed build will land here once the Microsoft Store listing is approved.
+A Store-signed MSIX is the cleanest install model on Windows: per-user, no admin, **no SmartScreen warning**, automatic updates. The Microsoft Store listing is in flight; once approved, this section will link directly to it.
 
-1. Download both **`TotalRecall-1.0.0.0.msix`** and **`TotalRecall-SelfSigned.cer`** from the release page.
-2. In an **admin** PowerShell window, trust the self-signed cert:
-   ```powershell
-   Import-Certificate -FilePath .\TotalRecall-SelfSigned.cer `
-                      -CertStoreLocation Cert:\LocalMachine\TrustedPeople
-   ```
-3. In any user PowerShell window, install the package:
-   ```powershell
-   Add-AppxPackage -Path .\TotalRecall-1.0.0.0.msix
-   ```
-4. Launch *TotalRecall* from the Start Menu. To uninstall:
-   ```powershell
-   Get-AppxPackage IlyaFainberg.TotalRecall | Remove-AppxPackage
-   ```
-
-The MCP server is registered as a global **App Execution Alias** named `totalrecall-mcp.exe` — after install, `where totalrecall-mcp.exe` resolves from any shell, so MCP hosts can launch it without knowing the locked-down `%PROGRAMFILES%\WindowsApps\…` install path.
-
-See [MSIX.md](MSIX.md) for full build details and the Microsoft Store submission walkthrough.
+In the meantime, if you want to build and sideload the MSIX yourself, see [MSIX.md](MSIX.md) for the local build script and the Partner Center submission walkthrough.
 
 ### Option 3 — MCP server only (no desktop app)
 
@@ -82,7 +65,7 @@ The bundle also ships an `INSTALL-WITH-AGENT.md` with a one-shot prompt you can 
 
 All packages are **self-contained** — no separate .NET runtime installation required.
 
-> **About the SmartScreen warning:** until the binaries are Authenticode-signed, Windows SmartScreen will warn on first launch of the Inno Setup option. The MSIX option avoids this *once* the cert is trusted (manual step today; automatic after the Microsoft Store listing is approved).
+> **About the SmartScreen warning:** until the binaries are Authenticode-signed, Windows SmartScreen will warn on first launch of the Inno Setup option. The Microsoft Store path will avoid this entirely once the listing is approved.
 
 ### Command-line flags
 

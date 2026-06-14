@@ -28,13 +28,13 @@ First public release. A local, searchable, encrypted index of everything that ha
 
 ## Install
 
-Three install options for the full desktop app, plus a fourth for just the MCP server:
+Two install options for the full desktop app, plus a third for just the MCP server:
 
 - **🟢 Inno Setup installer** *(recommended)* — `TotalRecall-1.0.0-Setup.exe` (~80 MB). Single-file, per-user install, no admin/UAC.
-- **MSIX package** — `TotalRecall-1.0.0.0.msix` (~115 MB) + `TotalRecall-SelfSigned.cer`. Cleanest install model on Windows; no SmartScreen warning once the cert is trusted. Microsoft Store submission in flight — Store-signed build will drop the manual cert step.
+- **Microsoft Store (MSIX)** — *coming soon.* Store-signed MSIX with no SmartScreen warning and automatic updates. Listing in flight; this section will link to it once approved.
 - **MCP server only** — `TotalRecall-Mcp-1.0.0-win-x64.zip` (~59 MB). Standalone MCP server bundle for users who already have a TotalRecall DB and only need the AI-agent integration. Ships its own README + a paste-into-an-agent one-shot install prompt.
 
-All packages are **self-contained** (no .NET runtime needed). The Inno Setup option will trigger SmartScreen on first launch (the binaries aren't Authenticode-signed yet — *More info → Run anyway*). The MSIX option avoids SmartScreen once the cert is trusted today, and automatically once the Microsoft Store listing is approved.
+All packages are **self-contained** (no .NET runtime needed). The Inno Setup option will trigger SmartScreen on first launch (the binaries aren't Authenticode-signed yet — *More info → Run anyway*). The Microsoft Store path will avoid SmartScreen entirely once the listing is approved.
 
 ### First-run setup
 
