@@ -29,7 +29,7 @@ The vision is a personal, private "computer memory" — Microsoft Recall, but op
 
 Two install options for the full desktop app, plus a third for just the MCP server — pick whichever you prefer:
 
-### Option 1 — Inno Setup installer 🟢 *recommended*
+### Option 1 — Installer 🟢 *recommended*
 
 A single `setup.exe`, no admin/UAC, per-user install with a proper Add/Remove Programs entry.
 
