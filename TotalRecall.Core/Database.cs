@@ -569,6 +569,85 @@ public sealed class Database : IDisposable
         return new CompactionResult(true, before, GetDatabaseFileBytes());
     }
 
+    /// <summary>
+    /// Re-encrypts an existing database file with a new key — or removes
+    /// encryption (<paramref name="newKey"/> == null), or adds it
+    /// (<paramref name="oldKey"/> == null). Uses SQLCipher's
+    /// <c>sqlcipher_export</c> to copy every byte through a side file, then
+    /// atomically swaps it in. Safe across all transitions: None ↔ UserAccount
+    /// ↔ Passphrase, with different passphrases counting as a change.
+    /// </summary>
+    /// <remarks>
+    /// Must NOT be called while a <see cref="Database"/> instance is open on
+    /// the same path — callers should dispose the live instance first. We
+    /// call <see cref="SqliteConnection.ClearAllPools"/> internally to drop
+    /// any cached connection that Microsoft.Data.Sqlite may still be holding
+    /// from before disposal, otherwise the file move below fails with a
+    /// sharing-violation on Windows. WAL / SHM sidecars are deleted after
+    /// the swap so the new file isn't fronted by a stale journal.
+    /// </remarks>
+    public static void Rekey(string path, string? oldKey, string? newKey)
+    {
+        if (!File.Exists(path)) return;
+        if (string.Equals(oldKey ?? "", newKey ?? "", StringComparison.Ordinal)) return;
+
+        SqliteConnection.ClearAllPools();
+
+        var tempPath = path + ".rekey-tmp";
+        if (File.Exists(tempPath)) File.Delete(tempPath);
+
+        var csb = new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false,
+        };
+        if (!string.IsNullOrEmpty(oldKey)) csb.Password = oldKey;
+
+        using (var src = new SqliteConnection(csb.ConnectionString))
+        {
+            src.Open();
+            // Flush WAL into the main file so sqlcipher_export sees everything.
+            using (var checkpoint = src.CreateCommand())
+            {
+                checkpoint.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+                try { checkpoint.ExecuteNonQuery(); } catch { /* best-effort */ }
+            }
+
+            using var cmd = src.CreateCommand();
+            var attachKey = QuoteSqlLiteral(newKey ?? "");
+            var attachPath = QuoteSqlLiteral(tempPath);
+            cmd.CommandText =
+                $"ATTACH DATABASE {attachPath} AS rekey KEY {attachKey};" +
+                "SELECT sqlcipher_export('rekey');" +
+                "DETACH DATABASE rekey;";
+            cmd.ExecuteNonQuery();
+        }
+
+        SqliteConnection.ClearAllPools();
+
+        var backup = path + ".rekey-bak";
+        TryDelete(backup);
+        File.Move(path, backup);
+        try
+        {
+            File.Move(tempPath, path);
+            TryDelete(path + "-wal");
+            TryDelete(path + "-shm");
+            TryDelete(backup);
+        }
+        catch
+        {
+            // Roll back: restore the original file.
+            TryDelete(path);
+            File.Move(backup, path);
+            throw;
+        }
+    }
+
+    private static string QuoteSqlLiteral(string s) => "'" + s.Replace("'", "''") + "'";
+    private static void TryDelete(string p) { try { if (File.Exists(p)) File.Delete(p); } catch { } }
+
     public long GetDatabaseFileBytes()
     {
         long total = 0;

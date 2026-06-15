@@ -61,6 +61,13 @@ public partial class MainForm : Form
     private CancellationTokenSource? cts;
     private int captureBusy;
     private DateTime lastRetentionUtc = DateTime.MinValue;
+    // Tracked so a graceful shutdown can wait for any background retention
+    // pass to complete before we dispose the DB out from under it.
+    private Task? lastRetentionTask;
+    // True once OnFormClosingHandler decides we're really shutting down.
+    // Marshalled callbacks (BeginInvoke from TickAsync / retention) check
+    // this to bail out before touching disposed controls.
+    private volatile bool shuttingDown;
 
     // Tray + lifecycle
     private NotifyIcon? trayIcon;
@@ -88,27 +95,12 @@ public partial class MainForm : Form
         // Don't run any runtime wiring at design time — the Visual Studio
         // designer instantiates the form with the parameterless ctor.
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-        // Form-level double-buffering: smooths resize / redraw on the header
-        // bar so updating the "Last:" timestamp every tick doesn't flash.
+        // Form-level double-buffering: smooths the routine repaints on the
+        // header bar (capture-status pill, "Last:" timestamp) without the
+        // drag-stutter side-effect of WS_EX_COMPOSITED, which forces the
+        // entire window to render through an extra back-buffer per paint.
         DoubleBuffered = true;
         InitializeApp(opts);
-    }
-
-    /// <summary>
-    /// Adds <c>WS_EX_COMPOSITED</c> to the form's extended window styles. Forces
-    /// the entire window to render bottom-up to an off-screen buffer before
-    /// painting on screen — the single most effective WinForms anti-flicker
-    /// hack for forms with nested SplitContainers and ListViews.
-    /// </summary>
-    protected override CreateParams CreateParams
-    {
-        get
-        {
-            var cp = base.CreateParams;
-            const int WS_EX_COMPOSITED = 0x02000000;
-            cp.ExStyle |= WS_EX_COMPOSITED;
-            return cp;
-        }
     }
 
     private void InitializeApp(LaunchOptions opts)
@@ -243,11 +235,60 @@ public partial class MainForm : Form
         if (settings == null) return;
         if (settingsForm == null || settingsForm.IsDisposed)
         {
+            // Snapshot the encryption identity BEFORE the user changes anything.
+            // SettingsPanel mutates the same AppSettings instance in place when
+            // the user clicks Save, so we have to capture the "old" values now.
+            var oldMode = settings.EncryptionMode;
+            var oldPass = settings.RuntimePassphrase;
+            string? oldKey;
+            try { oldKey = KeyVault.GetKey(settings); }
+            catch { oldKey = null; /* shouldn't happen — current DB already opens */ }
+
             settingsForm = new SettingsForm(settings);
             settingsForm.SettingsSaved += (_, _) =>
             {
                 DisposeServices();
                 RefreshCaptureSummary();
+
+                // Re-encrypt the existing DB file in place if the encryption mode
+                // or passphrase changed. Without this, the next AttachExistingDatabase
+                // call would fail with "file is not a database" (wrong key) or with
+                // a SQLCipher decrypt error.
+                try
+                {
+                    var newMode = settings.EncryptionMode;
+                    var newPass = settings.RuntimePassphrase;
+                    var changed = newMode != oldMode
+                                || !string.Equals(oldPass ?? "", newPass ?? "", StringComparison.Ordinal);
+                    if (changed && File.Exists(settings.DatabasePath))
+                    {
+                        string? newKey;
+                        try { newKey = KeyVault.GetKey(settings); }
+                        catch (Exception ex)
+                        {
+                            ShowError("Encryption change failed",
+                                "Could not resolve the new encryption key. The database was left unchanged.\r\n\r\n" + ex.Message);
+                            return;
+                        }
+
+                        try
+                        {
+                            LogSink.Log($"[encryption] re-encrypting DB: {oldMode} → {newMode}");
+                            SetStatus("Re-encrypting database…");
+                            Database.Rekey(settings.DatabasePath, oldKey, newKey);
+                            LogSink.Log("[encryption] re-encryption complete.");
+                        }
+                        catch (Exception ex)
+                        {
+                            ShowError("Re-encryption failed",
+                                "Could not re-encrypt the database with the new key. " +
+                                "Your original database file has been preserved.\r\n\r\n" + ex.Message);
+                            return;
+                        }
+                    }
+                }
+                finally { SetStatus(""); }
+
                 UpdateDbLabel();
                 TryAttachExistingDatabase();
                 lastRetentionUtc = DateTime.MinValue;
@@ -411,7 +452,11 @@ public partial class MainForm : Form
             HideToTray();
             return;
         }
-        Stop();
+        shuttingDown = true;
+        // Block briefly so the in-flight capture tick + retention sweep can
+        // unwind cleanly. Without this, DisposeServices() races against
+        // background threads still holding the DB / OCR engine — crash on close.
+        Stop(waitForInflight: true);
         DisposeServices();
         try { settings?.Save(); } catch { }
         if (trayIcon != null)
@@ -486,9 +531,51 @@ public partial class MainForm : Form
         timer = new System.Threading.Timer(async _ => await TickAsync(), null, intervalMs, intervalMs);
     }
 
-    private void Stop()
+    /// <summary>
+    /// Stops the capture loop. When <paramref name="waitForInflight"/> is
+    /// true (only set by <see cref="OnFormClosingHandler"/>), blocks until
+    /// the current tick + any background retention task have finished so
+    /// the caller can safely dispose <see cref="db"/> / <see cref="ocr"/>
+    /// without an ObjectDisposedException tearing down the process.
+    /// </summary>
+    private void Stop(bool waitForInflight = false)
     {
-        try { timer?.Dispose(); timer = null; cts?.Cancel(); } catch { }
+        try
+        {
+            // Cancel first so an in-flight tick observes cancellation ASAP.
+            try { cts?.Cancel(); } catch { }
+
+            if (timer != null)
+            {
+                if (waitForInflight)
+                {
+                    // Dispose(WaitHandle) signals when no callbacks are running.
+                    using var done = new ManualResetEvent(false);
+                    try { timer.Dispose(done); done.WaitOne(TimeSpan.FromSeconds(5)); }
+                    catch { try { timer.Dispose(); } catch { } }
+                }
+                else
+                {
+                    timer.Dispose();
+                }
+                timer = null;
+            }
+
+            if (waitForInflight)
+            {
+                // Spin briefly until the captureBusy flag clears. Bounded so
+                // a wedged OCR call can't keep the close hanging.
+                var deadline = DateTime.UtcNow.AddSeconds(5);
+                while (Interlocked.CompareExchange(ref captureBusy, 0, 0) == 1 && DateTime.UtcNow < deadline)
+                    Thread.Sleep(50);
+
+                // Same for the retention background task.
+                try { lastRetentionTask?.Wait(TimeSpan.FromSeconds(5)); }
+                catch { /* aggregate of cancelled / observed elsewhere */ }
+            }
+        }
+        catch { }
+
         SetCaptureRunningState(false);
         UpdateTrayMenuState(false);
         SetStatus("");
@@ -497,6 +584,7 @@ public partial class MainForm : Form
 
     private async Task TickAsync()
     {
+        if (shuttingDown) return;
         if (Interlocked.Exchange(ref captureBusy, 1) == 1)
         {
             LogSink.Log("Skipping tick — previous capture still running.");
@@ -504,16 +592,24 @@ public partial class MainForm : Form
         }
         try
         {
-            if (service == null) return;
+            // Snapshot to locals — these can be nulled out by DisposeServices()
+            // on another thread mid-tick. Working with locals keeps the rest
+            // of the method safe from torn reads / use-after-dispose.
+            var svc = service;
+            if (svc == null) return;
             var ct = cts?.Token ?? CancellationToken.None;
-            var result = await service.CaptureOnceAsync(ct);
+            var result = await svc.CaptureOnceAsync(ct);
+            if (shuttingDown) return;
             var snapshotLabel = result.SnapshotId > 0 ? $"snapshot #{result.SnapshotId}" : "no-change tick";
             LogSink.Log($"{snapshotLabel}: {result.StoredWindowCount}/{result.WindowCount} windows stored, {result.SkippedUnchanged} unchanged skipped, {result.ImageBytes / 1024} KB JPEG, {result.ElapsedMs} ms");
             try
             {
                 var lastLine = $"Last: {DateTime.Now:HH:mm:ss}  ·  {result.StoredWindowCount}/{result.WindowCount} stored";
-                if (InvokeRequired) BeginInvoke(() => capLastLbl.Text = lastLine);
-                else capLastLbl.Text = lastLine;
+                if (!shuttingDown && IsHandleCreated)
+                {
+                    if (InvokeRequired) BeginInvoke(new Action(() => { if (!shuttingDown) capLastLbl.Text = lastLine; }));
+                    else capLastLbl.Text = lastLine;
+                }
             }
             catch { }
             UpdateDbLabel();
@@ -523,9 +619,9 @@ public partial class MainForm : Form
             // box is focused, or a previous refresh is still in flight.
             try
             {
-                if (IsHandleCreated)
+                if (!shuttingDown && IsHandleCreated)
                 {
-                    if (InvokeRequired) BeginInvoke(new Action(() => browsePanel.RefreshIfNeeded()));
+                    if (InvokeRequired) BeginInvoke(new Action(() => { if (!shuttingDown) browsePanel.RefreshIfNeeded(); }));
                     else browsePanel.RefreshIfNeeded();
                 }
             }
@@ -533,6 +629,7 @@ public partial class MainForm : Form
             RunRetentionSweep(force: false);
         }
         catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { /* services disposed mid-tick during shutdown */ }
         catch (Exception ex) { LogSink.Log("Tick error: " + ex.Message); }
         finally { Interlocked.Exchange(ref captureBusy, 0); }
     }
@@ -551,7 +648,7 @@ public partial class MainForm : Form
         var snapshotDb = db;
         lastRetentionUtc = DateTime.UtcNow;
 
-        Task.Run(() =>
+        lastRetentionTask = Task.Run(() =>
         {
             try
             {
@@ -572,13 +669,22 @@ public partial class MainForm : Form
                         ? $", compacted DB ({FormatBytes(compaction.ReclaimedBytes)} reclaimed)"
                         : "";
                     LogSink.Log($"[retention] purged {r.RowsDeleted} row(s), stripped {r.ImagesPurged} image(s){compactMsg}.");
-                    BeginInvoke(new Action(() =>
+                    if (!shuttingDown && IsHandleCreated)
                     {
-                        UpdateDbLabel();
-                        browsePanel.InvalidateData();
-                    }));
+                        try
+                        {
+                            BeginInvoke(new Action(() =>
+                            {
+                                if (shuttingDown) return;
+                                UpdateDbLabel();
+                                browsePanel.InvalidateData();
+                            }));
+                        }
+                        catch { /* form closing race */ }
+                    }
                 }
             }
+            catch (ObjectDisposedException) { /* shutdown race */ }
             catch (Exception ex)
             {
                 LogSink.Log("[retention] error: " + ex.Message);
