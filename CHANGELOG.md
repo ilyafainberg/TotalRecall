@@ -14,7 +14,7 @@ Stability release focused on encryption changes, shutdown safety, and smoother w
 
 ## Artifacts
 
-- **🟢 Inno Setup installer** *(recommended)* — `TotalRecall-1.1.0-Setup.exe`. Single-file, per-user install, no admin/UAC.
+- **🟢 Inno Setup installer** *(recommended)* — `TotalRecall-1.1.0-Setup.zip`. Unzip, then run the installer inside. Single-file, per-user install, no admin/UAC. *(Shipped inside a ZIP so SmartScreen / Edge / Chrome don't flag the raw `.exe` as "not commonly downloaded".)*
 - **Portable ZIP** — `TotalRecall-1.1.0-Portable-win-x64.zip`. Extract anywhere stable, run `TotalRecall\TotalRecall.exe`. Self-contained, no install, no Add/Remove Programs entry.
 - **MCP server only** — `TotalRecall-Mcp-1.1.0-win-x64.zip`. Standalone MCP server bundle for users who already have a TotalRecall DB and only need the AI-agent integration.
 
@@ -114,3 +114,4 @@ All packages are **self-contained** (no .NET runtime needed). Both the Inno Setu
 ## Thanks
 
 Tesseract, SQLite + SQLCipher, ModelContextProtocol C# SDK, and the .NET team for WinForms-on-.NET-10 actually being pleasant.
+

@@ -33,7 +33,8 @@ Two install options for the full desktop app, plus a third for just the MCP serv
 
 A single `setup.exe`, no admin/UAC, per-user install with a proper Add/Remove Programs entry.
 
-1. Download **`TotalRecall-1.1.0-Setup.exe`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
+1. Download `TotalRecall-1.1.0-Setup.zip` from <https://github.com/ilyafainberg/TotalRecall/releases>.
+1. Unzip it (the installer is shipped inside a ZIP so browsers don't flag it as 'not commonly downloaded').
 2. Double-click it.
 3. Windows SmartScreen will say *"Windows protected your PC"* because this build isn't Authenticode-signed yet — click **More info → Run anyway**.
 4. Pick install folder (default `%LOCALAPPDATA%\Programs\TotalRecall\`) and optional shortcuts (Start Menu / desktop / *Start in tray on Windows sign-in*). Click **Install**.
@@ -443,4 +444,6 @@ This program is free software: you can redistribute it and/or modify it under th
 This program is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**; without even the implied warranty of **MERCHANTABILITY** or **FITNESS FOR A PARTICULAR PURPOSE**. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with this program in the file [LICENSE](LICENSE). If not, see <https://www.gnu.org/licenses/>.
+
+
 
