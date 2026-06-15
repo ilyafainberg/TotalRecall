@@ -1,3 +1,27 @@
+# TotalRecall v1.1.1
+
+UX polish + stability fixes that surfaced after v1.1.0 went live.
+
+## What's new
+
+- **Smooth tray transitions.** Hiding the window to the system tray no longer flickers (window briefly reappearing before vanishing) and restoring from the tray no longer suffers a slow, staggered repaint. The previous code toggled `Form.ShowInTaskbar`, which forces WinForms to destroy and recreate the HWND of every control in the window — that's gone now, replaced by a plain `Hide()` / `Show()` pair.
+- **No more Save & Close stutter / crash.** Saving Settings without changing the encryption mode used to trigger a full capture-stop, services teardown, DB reopen, and capture restart — freezing the UI for up to 10 seconds and occasionally crashing on a second Save. The Settings handler now takes a fast path when nothing encryption-related changed: it just repaints the header summary and refreshes the Browse panel. The full teardown/rekey/restart cycle only fires when the encryption mode or passphrase actually changes.
+- **Window title is just "TotalRecall".** The encryption-state suffix in the title bar (`TotalRecall (User Account Encrypted)`) was only refreshed at startup, so it would lie after any encryption change. Removed entirely — current encryption state lives in the header summary, which is always up to date.
+
+## Artifacts
+
+- **🟢 Inno Setup installer** *(recommended)* — `TotalRecall-1.1.1-Setup.zip`. Unzip, then run the installer inside. Single-file, per-user install, no admin/UAC. *(Shipped inside a ZIP so SmartScreen / Edge / Chrome don't flag the raw `.exe` as "not commonly downloaded".)*
+- **Portable ZIP** — `TotalRecall-1.1.1-Portable-win-x64.zip`. Extract anywhere stable, run `TotalRecall\TotalRecall.exe`. Self-contained, no install, no Add/Remove Programs entry.
+- **MCP server only** — `TotalRecall-Mcp-1.1.1-win-x64.zip`. Standalone MCP server bundle for users who already have a TotalRecall DB and only need the AI-agent integration.
+
+All artifacts are self-contained — no .NET runtime required.
+
+## Upgrading from 1.1.0
+
+Database schema, settings.json, and the MCP tool surface are unchanged. Drop the new build over the old one and your existing DB will open as-is.
+
+---
+
 # TotalRecall v1.1.0
 
 Stability release focused on encryption changes, shutdown safety, and smoother window dragging. If you ever changed the encryption mode in v1.0.x and ended up staring at a hung window or an "unable to open database" error, this is the fix.
