@@ -226,6 +226,7 @@ public partial class MainForm : Form
         {
             activityLogForm = new ActivityLogForm();
             activityLogForm.FormClosed += (_, _) => activityLogForm = null;
+            CenterChildOnThis(activityLogForm);
             activityLogForm.Show(this);
         }
         else
@@ -256,6 +257,7 @@ public partial class MainForm : Form
             settingsForm.PurgeRequested += (_, _) => RunRetentionSweep(force: true, compactNow: true);
             settingsForm.ClearDatabaseRequested += (_, _) => ClearDatabaseNow();
             settingsForm.FormClosed += (_, _) => settingsForm = null;
+            CenterChildOnThis(settingsForm);
             settingsForm.Show(this);
         }
         else
@@ -265,6 +267,32 @@ public partial class MainForm : Form
             settingsForm.BringToFront();
             settingsForm.Activate();
         }
+    }
+
+    /// <summary>
+    /// Manually centers a non-modal child form on top of <c>this</c>. WinForms'
+    /// <see cref="FormStartPosition.CenterParent"/> only works with
+    /// <see cref="Form.ShowDialog()"/>; for <see cref="Form.Show(IWin32Window)"/>
+    /// the runtime ignores it and falls back to <see cref="FormStartPosition.WindowsDefaultLocation"/>.
+    /// Clamps to the parent's screen so the child can't end up off-screen on
+    /// multi-monitor setups where the parent is near a screen edge.
+    /// </summary>
+    private void CenterChildOnThis(Form child)
+    {
+        try
+        {
+            child.StartPosition = FormStartPosition.Manual;
+            var ownerBounds = WindowState == FormWindowState.Minimized
+                ? Screen.FromControl(this).WorkingArea
+                : Bounds;
+            var x = ownerBounds.Left + Math.Max(0, (ownerBounds.Width  - child.Width)  / 2);
+            var y = ownerBounds.Top  + Math.Max(0, (ownerBounds.Height - child.Height) / 2);
+            var screen = Screen.FromPoint(new Point(x + child.Width / 2, y + child.Height / 2)).WorkingArea;
+            x = Math.Max(screen.Left, Math.Min(x, screen.Right  - child.Width));
+            y = Math.Max(screen.Top,  Math.Min(y, screen.Bottom - child.Height));
+            child.Location = new Point(x, y);
+        }
+        catch { /* positioning is cosmetic — let WinForms place it if anything goes sideways */ }
     }
 
     private void ShowAbout()

@@ -346,7 +346,7 @@ partial class BrowsePanel
         innerSplit.Panel2.Controls.Add(textContainer);
         innerSplit.Panel2MinSize = 60;
         innerSplit.Size = new Size(941, 750);
-        innerSplit.SplitterDistance = 576;
+        innerSplit.SplitterDistance = 574;
         innerSplit.SplitterWidth = 6;
         innerSplit.TabIndex = 0;
         // 
@@ -359,7 +359,7 @@ partial class BrowsePanel
         previewContainer.Location = new Point(0, 0);
         previewContainer.Name = "previewContainer";
         previewContainer.Padding = new Padding(12);
-        previewContainer.Size = new Size(576, 750);
+        previewContainer.Size = new Size(574, 750);
         previewContainer.TabIndex = 0;
         // 
         // preview
@@ -371,7 +371,7 @@ partial class BrowsePanel
         preview.Dock = DockStyle.Fill;
         preview.Location = new Point(12, 88);
         preview.Name = "preview";
-        preview.Size = new Size(552, 650);
+        preview.Size = new Size(550, 650);
         preview.TabIndex = 1;
         // 
         // previewCtx
@@ -391,7 +391,7 @@ partial class BrowsePanel
         previewToolbar.Dock = DockStyle.Top;
         previewToolbar.Location = new Point(12, 12);
         previewToolbar.Name = "previewToolbar";
-        previewToolbar.Size = new Size(552, 76);
+        previewToolbar.Size = new Size(550, 76);
         previewToolbar.TabIndex = 0;
         // 
         // previewTitleLbl
@@ -402,7 +402,7 @@ partial class BrowsePanel
         previewTitleLbl.Location = new Point(0, 0);
         previewTitleLbl.Name = "previewTitleLbl";
         previewTitleLbl.Padding = new Padding(2, 0, 2, 0);
-        previewTitleLbl.Size = new Size(256, 22);
+        previewTitleLbl.Size = new Size(346, 22);
         previewTitleLbl.TabIndex = 0;
         previewTitleLbl.Text = "Select a result to preview";
         // 
@@ -414,7 +414,7 @@ partial class BrowsePanel
         previewMetaLbl.Location = new Point(0, 22);
         previewMetaLbl.Name = "previewMetaLbl";
         previewMetaLbl.Padding = new Padding(2, 0, 2, 0);
-        previewMetaLbl.Size = new Size(256, 20);
+        previewMetaLbl.Size = new Size(346, 20);
         previewMetaLbl.TabIndex = 1;
         // 
         // zoomCaptionLbl
@@ -459,7 +459,7 @@ partial class BrowsePanel
         toggleSnippetBtn.FlatStyle = FlatStyle.Flat;
         toggleSnippetBtn.Font = new Font("Segoe UI Semibold", 9F);
         toggleSnippetBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        toggleSnippetBtn.Location = new Point(476, 0);
+        toggleSnippetBtn.Location = new Point(474, 0);
         toggleSnippetBtn.Name = "toggleSnippetBtn";
         toggleSnippetBtn.Padding = new Padding(6, 0, 6, 0);
         toggleSnippetBtn.Size = new Size(76, 25);
@@ -478,7 +478,7 @@ partial class BrowsePanel
         textContainer.Location = new Point(0, 0);
         textContainer.Name = "textContainer";
         textContainer.Padding = new Padding(12);
-        textContainer.Size = new Size(359, 750);
+        textContainer.Size = new Size(361, 750);
         textContainer.TabIndex = 0;
         // 
         // previewText
@@ -494,7 +494,7 @@ partial class BrowsePanel
         previewText.Name = "previewText";
         previewText.ReadOnly = true;
         previewText.ScrollBars = ScrollBars.Vertical;
-        previewText.Size = new Size(335, 684);
+        previewText.Size = new Size(337, 684);
         previewText.TabIndex = 1;
         // 
         // textCtx
@@ -507,7 +507,7 @@ partial class BrowsePanel
         panel1.Dock = DockStyle.Top;
         panel1.Location = new Point(12, 40);
         panel1.Name = "panel1";
-        panel1.Size = new Size(335, 14);
+        panel1.Size = new Size(337, 14);
         panel1.TabIndex = 2;
         // 
         // textToolbar
@@ -519,7 +519,7 @@ partial class BrowsePanel
         textToolbar.Dock = DockStyle.Top;
         textToolbar.Location = new Point(12, 12);
         textToolbar.Name = "textToolbar";
-        textToolbar.Size = new Size(335, 28);
+        textToolbar.Size = new Size(337, 28);
         textToolbar.TabIndex = 0;
         // 
         // textTitleLbl
@@ -530,7 +530,7 @@ partial class BrowsePanel
         textTitleLbl.Location = new Point(0, 0);
         textTitleLbl.Name = "textTitleLbl";
         textTitleLbl.Padding = new Padding(2, 4, 2, 0);
-        textTitleLbl.Size = new Size(235, 28);
+        textTitleLbl.Size = new Size(237, 28);
         textTitleLbl.TabIndex = 0;
         textTitleLbl.Text = "Captured text";
         // 
@@ -543,7 +543,7 @@ partial class BrowsePanel
         copyTextBtn.FlatStyle = FlatStyle.Flat;
         copyTextBtn.Font = new Font("Segoe UI Semibold", 9F);
         copyTextBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        copyTextBtn.Location = new Point(235, 0);
+        copyTextBtn.Location = new Point(237, 0);
         copyTextBtn.Name = "copyTextBtn";
         copyTextBtn.Padding = new Padding(6, 0, 6, 0);
         copyTextBtn.Size = new Size(64, 28);
@@ -560,7 +560,7 @@ partial class BrowsePanel
         collapseTextBtn.FlatStyle = FlatStyle.Flat;
         collapseTextBtn.Font = new Font("Segoe UI Semibold", 9F);
         collapseTextBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        collapseTextBtn.Location = new Point(299, 0);
+        collapseTextBtn.Location = new Point(301, 0);
         collapseTextBtn.Name = "collapseTextBtn";
         collapseTextBtn.Padding = new Padding(6, 0, 6, 0);
         collapseTextBtn.Size = new Size(36, 28);
