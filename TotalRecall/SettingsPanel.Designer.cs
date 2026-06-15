@@ -71,6 +71,7 @@ partial class SettingsPanel
         purgeNowBtn = new Button();
         clearDbBtn = new Button();
         saveBtn = new Button();
+        cancelBtn = new Button();
         card.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)intervalNud).BeginInit();
         ((System.ComponentModel.ISupportInitialize)qualityBar).BeginInit();
@@ -125,6 +126,7 @@ partial class SettingsPanel
         card.Controls.Add(purgeNowBtn);
         card.Controls.Add(clearDbBtn);
         card.Controls.Add(saveBtn);
+        card.Controls.Add(cancelBtn);
         card.Dock = DockStyle.Top;
         card.Location = new Point(20, 20);
         card.Name = "card";
@@ -613,8 +615,24 @@ partial class SettingsPanel
         saveBtn.Padding = new Padding(8, 0, 8, 0);
         saveBtn.Size = new Size(180, 36);
         saveBtn.TabIndex = 29;
-        saveBtn.Text = "💾  Save settings";
+        saveBtn.Text = "💾  Save && Close";
         saveBtn.UseVisualStyleBackColor = false;
+        // 
+        // cancelBtn
+        // 
+        cancelBtn.BackColor = Color.White;
+        cancelBtn.Cursor = Cursors.Hand;
+        cancelBtn.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 215);
+        cancelBtn.FlatStyle = FlatStyle.Flat;
+        cancelBtn.Font = new Font("Segoe UI Semibold", 9.5F);
+        cancelBtn.ForeColor = Color.FromArgb(28, 28, 30);
+        cancelBtn.Location = new Point(216, 1128);
+        cancelBtn.Name = "cancelBtn";
+        cancelBtn.Padding = new Padding(8, 0, 8, 0);
+        cancelBtn.Size = new Size(120, 36);
+        cancelBtn.TabIndex = 30;
+        cancelBtn.Text = "Cancel";
+        cancelBtn.UseVisualStyleBackColor = false;
         // 
         // SettingsPanel
         // 
@@ -679,5 +697,6 @@ partial class SettingsPanel
     private System.Windows.Forms.Button purgeNowBtn;
     private System.Windows.Forms.Button clearDbBtn;
     private System.Windows.Forms.Button saveBtn;
+    private System.Windows.Forms.Button cancelBtn;
     private Panel panel1;
 }

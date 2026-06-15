@@ -594,7 +594,41 @@ public sealed class Database : IDisposable
         SqliteConnection.ClearAllPools();
 
         var tempPath = path + ".rekey-tmp";
-        if (File.Exists(tempPath)) File.Delete(tempPath);
+        TryDelete(tempPath);
+        TryDelete(tempPath + "-wal");
+        TryDelete(tempPath + "-shm");
+
+        // SQLCipher quirk: `ATTACH DATABASE 'foo.db' AS x KEY '...'` on a
+        // non-existent destination path fails with SQLITE_CANTOPEN (error 14)
+        // any time the source connection's cipher state doesn't match what's
+        // being requested for the destination — including the very common
+        // plaintext<->encrypted case. The documented workaround is to
+        // materialize the destination file first using a separate connection
+        // configured exactly the way we want the destination to be, then
+        // ATTACH it. An empty file with the right cipher state is everything
+        // SQLCipher needs; `sqlcipher_export` then populates it.
+        var seedCsb = new SqliteConnectionStringBuilder
+        {
+            DataSource = tempPath,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Pooling = false,
+        };
+        if (!string.IsNullOrEmpty(newKey)) seedCsb.Password = newKey;
+        using (var seed = new SqliteConnection(seedCsb.ConnectionString))
+        {
+            seed.Open();
+            // For encrypted destinations, force SQLCipher to write its header
+            // pages by running a trivial PRAGMA. Without this, an unused
+            // connection sometimes leaves a zero-byte file, which then fails
+            // when re-opened via ATTACH.
+            if (!string.IsNullOrEmpty(newKey))
+            {
+                using var pragma = seed.CreateCommand();
+                pragma.CommandText = "PRAGMA user_version;";
+                try { pragma.ExecuteScalar(); } catch { /* best-effort */ }
+            }
+        }
+        SqliteConnection.ClearAllPools();
 
         var csb = new SqliteConnectionStringBuilder
         {
@@ -617,10 +651,15 @@ public sealed class Database : IDisposable
             using var cmd = src.CreateCommand();
             var attachKey = QuoteSqlLiteral(newKey ?? "");
             var attachPath = QuoteSqlLiteral(tempPath);
-            cmd.CommandText =
-                $"ATTACH DATABASE {attachPath} AS rekey KEY {attachKey};" +
-                "SELECT sqlcipher_export('rekey');" +
-                "DETACH DATABASE rekey;";
+
+            // Issue the three statements separately. Microsoft.Data.Sqlite can
+            // execute multi-statement CommandText, but splitting them gives us
+            // a per-step stack frame if anything throws — much easier to triage.
+            cmd.CommandText = $"ATTACH DATABASE {attachPath} AS rekey KEY {attachKey};";
+            cmd.ExecuteNonQuery();
+            cmd.CommandText = "SELECT sqlcipher_export('rekey');";
+            cmd.ExecuteNonQuery();
+            cmd.CommandText = "DETACH DATABASE rekey;";
             cmd.ExecuteNonQuery();
         }
 

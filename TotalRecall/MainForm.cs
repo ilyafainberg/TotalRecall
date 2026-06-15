@@ -245,8 +245,16 @@ public partial class MainForm : Form
             catch { oldKey = null; /* shouldn't happen — current DB already opens */ }
 
             settingsForm = new SettingsForm(settings);
-            settingsForm.SettingsSaved += (_, _) =>
+            settingsForm.SettingsSaved += async (_, _) =>
             {
+                // If capture is currently running, we need to fully stop the
+                // timer (not just null out services) before the rekey can run,
+                // because background ticks would otherwise see a null service
+                // and silently no-op for the rest of the session even after
+                // the DB is back. We remember the running state so we can
+                // restart capture once re-encryption completes.
+                bool wasCapturing = timer != null;
+                if (wasCapturing) Stop(waitForInflight: true);
                 DisposeServices();
                 RefreshCaptureSummary();
 
@@ -254,45 +262,89 @@ public partial class MainForm : Form
                 // or passphrase changed. Without this, the next AttachExistingDatabase
                 // call would fail with "file is not a database" (wrong key) or with
                 // a SQLCipher decrypt error.
-                try
+                //
+                // For non-trivial DBs the rekey is slow enough (seconds-to-minutes
+                // on 100+ MB files) that we must NOT do it on the UI thread.
+                // ReencryptionDialog runs the rekey on a background task while
+                // showing a progress bar driven by the temp file's growth, and
+                // blocks the rest of the app (modal) until it's done. The user
+                // can request a quit during the rekey; if they do, the dialog
+                // keeps running, finishes safely, and we Application.Exit on
+                // return so the file move + journal cleanup never gets cut off.
+                var newMode = settings.EncryptionMode;
+                var newPass = settings.RuntimePassphrase;
+                var changed = newMode != oldMode
+                            || !string.Equals(oldPass ?? "", newPass ?? "", StringComparison.Ordinal);
+
+                if (changed && File.Exists(settings.DatabasePath))
                 {
-                    var newMode = settings.EncryptionMode;
-                    var newPass = settings.RuntimePassphrase;
-                    var changed = newMode != oldMode
-                                || !string.Equals(oldPass ?? "", newPass ?? "", StringComparison.Ordinal);
-                    if (changed && File.Exists(settings.DatabasePath))
+                    string? newKey;
+                    try { newKey = KeyVault.GetKey(settings); }
+                    catch (Exception ex)
                     {
-                        string? newKey;
-                        try { newKey = KeyVault.GetKey(settings); }
-                        catch (Exception ex)
+                        ShowError("Encryption change failed",
+                            "Could not resolve the new encryption key. The database was left unchanged.\r\n\r\n" + ex.Message);
+                        TryAttachExistingDatabase();
+                        if (wasCapturing) { try { await StartAsync(); } catch (Exception ex2) { ShowError("Restart failed", ex2.Message); } }
+                        return;
+                    }
+
+                    LogSink.Log($"[encryption] re-encrypting DB: {oldMode} → {newMode}");
+                    using (var dlg = new ReencryptionDialog(settings.DatabasePath, oldKey, newKey,
+                        DescribeEncryption(oldMode), DescribeEncryption(newMode)))
+                    {
+                        CenterChildOnThis(dlg);
+                        dlg.ShowDialog(this);
+
+                        if (dlg.Error != null)
                         {
-                            ShowError("Encryption change failed",
-                                "Could not resolve the new encryption key. The database was left unchanged.\r\n\r\n" + ex.Message);
+                            LogSink.Log("[encryption] re-encryption failed: " + dlg.Error.Message);
+                            ShowError("Re-encryption failed",
+                                "Could not re-encrypt the database with the new key. " +
+                                "Your original database file has been preserved.\r\n\r\n" + dlg.Error.Message);
+                            // Don't quit even if user clicked Quit: the DB is unchanged,
+                            // so they probably want another shot.
+                            TryAttachExistingDatabase();
+                            if (wasCapturing) { try { await StartAsync(); } catch (Exception ex2) { ShowError("Restart failed", ex2.Message); } }
                             return;
                         }
 
-                        try
+                        LogSink.Log("[encryption] re-encryption complete.");
+
+                        if (dlg.QuitRequested)
                         {
-                            LogSink.Log($"[encryption] re-encrypting DB: {oldMode} → {newMode}");
-                            SetStatus("Re-encrypting database…");
-                            Database.Rekey(settings.DatabasePath, oldKey, newKey);
-                            LogSink.Log("[encryption] re-encryption complete.");
-                        }
-                        catch (Exception ex)
-                        {
-                            ShowError("Re-encryption failed",
-                                "Could not re-encrypt the database with the new key. " +
-                                "Your original database file has been preserved.\r\n\r\n" + ex.Message);
+                            // User asked to quit while the rekey was running.
+                            // Rekey is now finished and the file is safe — exit.
+                            // OnFormClosingHandler still runs cleanly because
+                            // services were already disposed before the dialog.
+                            shuttingDown = true;
+                            Application.Exit();
                             return;
                         }
                     }
                 }
-                finally { SetStatus(""); }
 
                 UpdateDbLabel();
                 TryAttachExistingDatabase();
                 lastRetentionUtc = DateTime.MinValue;
                 RunRetentionSweep(force: true);
+
+                // Restart the capture timer if it was running before the
+                // settings change. EnsureServices() inside StartAsync()
+                // rebuilds ocr + service for the now-re-attached DB.
+                if (wasCapturing)
+                {
+                    try { await StartAsync(); }
+                    catch (Exception ex) { ShowError("Restart failed", ex.Message); }
+                }
+
+                // Force-refresh the results list now so the user sees data
+                // immediately after re-encryption — without this, the panel
+                // sits empty until the next capture tick (or never, if
+                // capture wasn't running) even though the DB is fully open.
+                browsePanel.InvalidateData();
+                browsePanel.ForceRefresh();
+
                 if (settings != null && !settings.MinimizeToTray && !Visible) ShowFromTray();
             };
             settingsForm.PurgeRequested += (_, _) => RunRetentionSweep(force: true, compactNow: true);
@@ -853,6 +905,15 @@ public partial class MainForm : Form
         LogSink.Log("ERROR: " + msg);
         MessageBox.Show(this, msg, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
+
+    /// <summary>Human-readable label for an <see cref="EncryptionMode"/> — used in the title bar and re-encryption dialog.</summary>
+    private static string DescribeEncryption(EncryptionMode mode) => mode switch
+    {
+        EncryptionMode.None        => "None",
+        EncryptionMode.UserAccount => "User Account",
+        EncryptionMode.Passphrase  => "Password",
+        _                          => mode.ToString(),
+    };
 
     public static string FormatBytes(long bytes)
     {

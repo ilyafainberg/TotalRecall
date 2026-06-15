@@ -1,3 +1,31 @@
+# TotalRecall v1.1.0
+
+Stability release focused on encryption changes, shutdown safety, and smoother window dragging. If you ever changed the encryption mode in v1.0.x and ended up staring at a hung window or an "unable to open database" error, this is the fix.
+
+## What's new
+
+- **Modal re-encryption with progress.** Switching the encryption mode (None / User Account / Password) on a 100+ MB database used to freeze the UI for tens of seconds with no feedback. Now you get a proper modal dialog with a real progress bar driven by the rekey's temp-file growth, plus a Quit button that lets you walk away — the rekey keeps running and the app exits cleanly when it's done.
+- **Encryption-change bugfix.** Saving Settings with a new encryption mode could leave the database in a state that wouldn't open on the next launch (`SQLite Error 14: unable to open database`). The rekey path now pre-seeds the destination file with the correct cipher state so SQLCipher's `ATTACH DATABASE` accepts it in both directions (encrypted ↔ plaintext).
+- **Auto-refresh restored after rekey.** After a successful re-encryption, the results list now repopulates immediately and capture resumes if it was running — no more empty Browse pane until the next manual F5.
+- **Settings: Save & Close + Cancel.** Settings now has explicit `Save & Close` and `Cancel` buttons. Esc cancels. No more "did anything happen" after clicking save.
+- **Smoother window dragging.** Reduced UI work during the WM_NCLBUTTONDOWN / move loop so dragging the window no longer stutters when capture is running.
+- **Graceful shutdown.** Closing the app while a capture tick or retention sweep is in flight now waits up to 5 seconds for those tasks to drain before disposing the database. Fixes the occasional "background tasks still running" crash on exit.
+- **Persistent app log.** Every activity-log line is also mirrored to `%LOCALAPPDATA%\TotalRecall\app.log` (auto-rolled at 1 MB) and unhandled exceptions on every thread are now logged. Makes post-mortem debugging actually possible.
+
+## Artifacts
+
+- **🟢 Inno Setup installer** *(recommended)* — `TotalRecall-1.1.0-Setup.exe`. Single-file, per-user install, no admin/UAC.
+- **Portable ZIP** — `TotalRecall-1.1.0-Portable-win-x64.zip`. Extract anywhere stable, run `TotalRecall\TotalRecall.exe`. Self-contained, no install, no Add/Remove Programs entry.
+- **MCP server only** — `TotalRecall-Mcp-1.1.0-win-x64.zip`. Standalone MCP server bundle for users who already have a TotalRecall DB and only need the AI-agent integration.
+
+All artifacts are self-contained — no .NET runtime required.
+
+## Upgrading from 1.0.x
+
+Database schema, settings.json, and the MCP tool surface are unchanged. Drop the new build over the old one and your existing DB will open as-is.
+
+---
+
 # TotalRecall v1.0.1
 
 Quality-of-life release. Mostly UX polish plus an OSS-readiness comment sweep across the codebase so external contributors can find their footing.

@@ -36,6 +36,24 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        // Wire global crash logging FIRST so any startup failure ends up in
+        // %LOCALAPPDATA%\TotalRecall\app.log instead of vanishing silently.
+        // We also catch the WinForms-thread variant via Application.ThreadException
+        // and Task-pool unobserved exceptions; together these cover every code
+        // path that can take the process down without our own try/catch.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            try { LogSink.Log("[crash] AppDomain.UnhandledException: " + e.ExceptionObject); } catch { }
+        };
+        Application.ThreadException += (_, e) =>
+        {
+            try { LogSink.Log("[crash] Application.ThreadException: " + e.Exception); } catch { }
+        };
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            try { LogSink.Log("[crash] TaskScheduler.UnobservedTaskException: " + e.Exception); } catch { }
+        };
+
         var opts = LaunchOptions.Parse(args);
 
         if (opts.ShowHelp || opts.ParseError != null)

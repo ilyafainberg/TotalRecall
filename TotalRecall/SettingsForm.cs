@@ -42,6 +42,7 @@ public sealed class SettingsForm : Form
         Height = 760;
         MinimumSize = new Size(640, 480);
         StartPosition = FormStartPosition.CenterParent;
+        KeyPreview = true;
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
         Panel = new SettingsPanel
@@ -52,9 +53,34 @@ public sealed class SettingsForm : Form
             Padding = new Padding(20),
         };
         Panel.BindSettings(settings);
-        Panel.SettingsSaved += (_, _) => SettingsSaved?.Invoke(this, EventArgs.Empty);
+        // Forward Save and close the window. The actual close is deferred to
+        // the next message loop tick (BeginInvoke) so the panel's button click
+        // handler fully unwinds before the form is disposed — closing during
+        // the click handler invalidates the button mid-handler and can take
+        // down the UI thread when the host then opens a follow-up modal.
+        Panel.SettingsSaved += (_, _) =>
+        {
+            BeginInvoke(new Action(() =>
+            {
+                Close();
+                SettingsSaved?.Invoke(this, EventArgs.Empty);
+            }));
+        };
         Panel.PurgeRequested += (_, _) => PurgeRequested?.Invoke(this, EventArgs.Empty);
         Panel.ClearDatabaseRequested += (_, _) => ClearDatabaseRequested?.Invoke(this, EventArgs.Empty);
+        Panel.Cancelled += (_, _) => Close();
+
+        // ESC closes (treated as Cancel) — natural keyboard UX for a settings
+        // dialog. We don't set AcceptButton because Enter inside a text field
+        // could trigger an accidental Save.
+        KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                e.Handled = true;
+                Close();
+            }
+        };
 
         Controls.Add(Panel);
     }

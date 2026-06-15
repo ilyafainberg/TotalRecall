@@ -42,6 +42,7 @@ public partial class SettingsPanel : UserControl
     public event EventHandler? SettingsSaved;
     public event EventHandler? PurgeRequested;
     public event EventHandler? ClearDatabaseRequested;
+    public event EventHandler? Cancelled;
 
     public SettingsPanel()
     {
@@ -67,6 +68,7 @@ public partial class SettingsPanel : UserControl
         purgeNowBtn.Click += (_, _) => PurgeRequested?.Invoke(this, EventArgs.Empty);
         clearDbBtn.Click += (_, _) => OnClearDatabaseClicked();
         saveBtn.Click += (_, _) => Save();
+        cancelBtn.Click += (_, _) => Cancelled?.Invoke(this, EventArgs.Empty);
     }
 
     public void BindSettings(AppSettings settings)
@@ -174,7 +176,6 @@ public partial class SettingsPanel : UserControl
                     "Settings saved, but updating the Windows startup entry failed: " + regEx.Message,
                     "TotalRecall", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            MessageBox.Show(this, "Settings saved.", "TotalRecall", MessageBoxButtons.OK, MessageBoxIcon.Information);
             SettingsSaved?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
