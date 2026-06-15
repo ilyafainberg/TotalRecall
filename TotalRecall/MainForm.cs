@@ -88,7 +88,27 @@ public partial class MainForm : Form
         // Don't run any runtime wiring at design time — the Visual Studio
         // designer instantiates the form with the parameterless ctor.
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+        // Form-level double-buffering: smooths resize / redraw on the header
+        // bar so updating the "Last:" timestamp every tick doesn't flash.
+        DoubleBuffered = true;
         InitializeApp(opts);
+    }
+
+    /// <summary>
+    /// Adds <c>WS_EX_COMPOSITED</c> to the form's extended window styles. Forces
+    /// the entire window to render bottom-up to an off-screen buffer before
+    /// painting on screen — the single most effective WinForms anti-flicker
+    /// hack for forms with nested SplitContainers and ListViews.
+    /// </summary>
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            var cp = base.CreateParams;
+            const int WS_EX_COMPOSITED = 0x02000000;
+            cp.ExStyle |= WS_EX_COMPOSITED;
+            return cp;
+        }
     }
 
     private void InitializeApp(LaunchOptions opts)
@@ -138,6 +158,10 @@ public partial class MainForm : Form
         };
 
         FormClosing += OnFormClosingHandler;
+        // Restoring the window from tray / Alt+Tab fires Activated — use it to
+        // immediately surface any data the capture loop produced while the
+        // window was hidden, rather than waiting for the next tick.
+        Activated += (_, _) => browsePanel.RefreshIfNeeded();
 
         quitBtn.Click += (_, _) => { reallyExit = true; Close(); };
 
@@ -466,6 +490,18 @@ public partial class MainForm : Form
             catch { }
             UpdateDbLabel();
             browsePanel.InvalidateData();
+            // Marshal a refresh to the UI thread. RefreshIfNeeded() itself
+            // guards against running while the panel is hidden, the search
+            // box is focused, or a previous refresh is still in flight.
+            try
+            {
+                if (IsHandleCreated)
+                {
+                    if (InvokeRequired) BeginInvoke(new Action(() => browsePanel.RefreshIfNeeded()));
+                    else browsePanel.RefreshIfNeeded();
+                }
+            }
+            catch { /* form closing race — harmless */ }
             RunRetentionSweep(force: false);
         }
         catch (OperationCanceledException) { }

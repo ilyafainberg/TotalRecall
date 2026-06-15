@@ -18,6 +18,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -53,12 +55,45 @@ public partial class BrowsePanel : UserControl
     private WindowDetail? currentDetail;
     private int? lastInnerSplitterDistance;
 
+    // Snapshot of the app-name filter the combo currently shows. Cheap
+    // string-set compare lets us skip rebuilding the combo on every tick
+    // (which flickers, drops the dropdown, and loses the typing caret).
+    private HashSet<string> lastAppFilterSet = new(StringComparer.Ordinal);
+
+    // Coalesce refresh requests: TickAsync fires every N seconds, but if a
+    // refresh is already running we'll just mark dirty and the in-flight
+    // call will repaint at the end. Avoids overlapping DB queries.
+    private bool refreshInFlight;
+
     public BrowsePanel()
     {
         InitializeComponent();
         WireEvents();
         WireZoom();
         WireContextMenus();
+        EnableDoubleBufferingHacks();
+        VisibleChanged += (_, _) =>
+        {
+            // User came back to a hidden Browse pane (e.g. restored from tray) —
+            // surface any data the tick produced while we weren't looking.
+            if (Visible) RefreshIfNeeded();
+        };
+    }
+
+    /// <summary>
+    /// Turns on double-buffering for the inner ListView via reflection (the
+    /// <see cref="Control.DoubleBuffered"/> property is protected on the base
+    /// class, so the Designer can't set it). Without this, every auto-tick
+    /// repaint of the results list flashes white.
+    /// </summary>
+    private void EnableDoubleBufferingHacks()
+    {
+        try
+        {
+            var prop = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
+            prop?.SetValue(results, true);
+        }
+        catch { /* best-effort UX polish, never block the app */ }
     }
 
     private void WireEvents()
@@ -119,20 +154,45 @@ public partial class BrowsePanel : UserControl
         if (db == null) ClearUi();
     }
 
+    /// <summary>
+    /// Marks the visible data as stale. Safe to call from any thread; the
+    /// next <see cref="RefreshIfNeeded"/> picks up the flag. The capture
+    /// loop calls this every tick.
+    /// </summary>
     public void InvalidateData() => dirty = true;
 
+    /// <summary>
+    /// Re-runs the current query if the panel is visible, the DB is open,
+    /// data is dirty, and the user isn't actively editing the search box.
+    /// </summary>
+    /// <remarks>
+    /// Intentionally conservative: we skip the refresh when the user is
+    /// typing in <see cref="searchBox"/> so a tick mid-keystroke doesn't
+    /// rip the dropdown shut or steal the caret. The dirty flag stays set
+    /// so the next valid refresh picks up.
+    /// </remarks>
     public void RefreshIfNeeded()
     {
-        if (!dirty || db == null) return;
+        if (db == null || !dirty) return;
+        if (!Visible || !IsHandleCreated) return;
+        if (refreshInFlight) return;
+        if (searchBox.Focused && !string.IsNullOrEmpty(searchBox.Text)) return;
+        if (appCombo.Focused && appCombo.DroppedDown) return;
+
         dirty = false;
         ReloadAppFilter();
         _ = DoSearchAsync();
     }
 
-    /// <summary>F5 / hamburger-Refresh: always re-run the search, even when not dirty.</summary>
+    /// <summary>
+    /// F5 / hamburger-Refresh: always re-run the search, even when not
+    /// dirty and even when the search box is focused. The user asked
+    /// explicitly so we honour it.
+    /// </summary>
     public void ForceRefresh()
     {
         if (db == null) return;
+        dirty = false;
         ReloadAppFilter();
         _ = DoSearchAsync();
     }
@@ -143,19 +203,47 @@ public partial class BrowsePanel : UserControl
         searchBox.SelectAll();
     }
 
+    /// <summary>
+    /// Rebuilds the app-filter combo only when the distinct app set in the
+    /// DB actually changed since last time. This stops every tick from
+    /// blowing away the user's current selection / dropdown position.
+    /// </summary>
     private void ReloadAppFilter()
     {
         if (db == null) return;
         try
         {
+            var current = db.GetDistinctAppNames().ToList();
+            var currentSet = new HashSet<string>(current, StringComparer.Ordinal);
+
+            // Nothing changed (and we already populated at least once) → no-op.
+            if (appCombo.Items.Count > 0 && currentSet.SetEquals(lastAppFilterSet))
+                return;
+
+            // Preserve whatever the user had selected if it's still in the list.
+            var previousText = appCombo.Text;
+
             appCombo.BeginUpdate();
-            appCombo.Items.Clear();
-            appCombo.Items.Add("(all apps)");
-            foreach (var a in db.GetDistinctAppNames()) appCombo.Items.Add(a);
-            appCombo.SelectedIndex = 0;
-            appCombo.Text = "(all apps)";
+            try
+            {
+                appCombo.Items.Clear();
+                appCombo.Items.Add("(all apps)");
+                foreach (var a in current) appCombo.Items.Add(a);
+                if (!string.IsNullOrEmpty(previousText) && currentSet.Contains(previousText))
+                {
+                    appCombo.Text = previousText;
+                }
+                else
+                {
+                    appCombo.SelectedIndex = 0;
+                    appCombo.Text = "(all apps)";
+                }
+            }
+            finally { appCombo.EndUpdate(); }
+
+            lastAppFilterSet = currentSet;
         }
-        finally { appCombo.EndUpdate(); }
+        catch { /* combo rebuild is cosmetic — never break the panel */ }
     }
 
     private async Task DoSearchAsync()
@@ -172,14 +260,20 @@ public partial class BrowsePanel : UserControl
         }
         int limit = (int)limitNud.Value;
 
+        refreshInFlight = true;
         searchBtn.Enabled = false;
-        resultsCountLbl.Text = "Searching…";
+        // Don't flash a "Searching…" message on every auto-tick — only when
+        // the count would actually be empty. Auto-refreshes should feel
+        // invisible; user-initiated searches will still see it via the
+        // initial empty state.
+        var showProgress = hits.Count == 0;
+        if (showProgress) resultsCountLbl.Text = "Searching…";
         try
         {
-            var hits = await Task.Run(() => db.Search(query, app, from, to, limit));
-            this.hits = hits;
+            var newHits = await Task.Run(() => db.Search(query, app, from, to, limit));
+            this.hits = newHits;
             PopulateResults();
-            resultsCountLbl.Text = $"{hits.Count} result(s)";
+            resultsCountLbl.Text = $"{newHits.Count} result(s)";
         }
         catch (Exception ex)
         {
@@ -187,32 +281,76 @@ public partial class BrowsePanel : UserControl
             hits.Clear();
             results.Items.Clear();
         }
-        finally { searchBtn.Enabled = true; }
+        finally
+        {
+            searchBtn.Enabled = true;
+            refreshInFlight = false;
+            // Tick may have marked us dirty again while we were querying — coalesce.
+            if (dirty) RefreshIfNeeded();
+        }
     }
 
+    /// <summary>
+    /// Renders <see cref="hits"/> into the results ListView. Preserves the
+    /// previously-selected row (by WindowId) and the user's scroll position
+    /// so auto-refreshes never yank the user out of whatever they were
+    /// inspecting.
+    /// </summary>
     private void PopulateResults()
     {
+        // Snapshot current selection + scroll so we can restore them.
+        long? previouslySelectedWindowId = results.SelectedItems.Count > 0
+            ? ((SearchHit)results.SelectedItems[0].Tag!).WindowId
+            : null;
+        int previousTopIndex = -1;
+        try { previousTopIndex = results.TopItem?.Index ?? -1; } catch { }
+
         results.BeginUpdate();
-        results.Items.Clear();
-        foreach (var h in hits)
+        try
         {
-            var when = h.Timestamp;
-            if (DateTimeOffset.TryParse(h.Timestamp, out var dto))
-                when = dto.ToLocalTime().ToString("MM-dd HH:mm:ss");
-            var snippet = (h.Snippet ?? "").Replace("\r", " ").Replace("\n", " ");
-            var item = new ListViewItem(new[]
+            results.Items.Clear();
+            ListViewItem? restoreSelection = null;
+            foreach (var h in hits)
             {
-                when,
-                h.Title ?? "",
-                snippet,
-                h.AppName ?? "",
-            });
-            item.Tag = h;
-            results.Items.Add(item);
+                var when = h.Timestamp;
+                if (DateTimeOffset.TryParse(h.Timestamp, out var dto))
+                    when = dto.ToLocalTime().ToString("MM-dd HH:mm:ss");
+                var snippet = (h.Snippet ?? "").Replace("\r", " ").Replace("\n", " ");
+                var item = new ListViewItem(new[]
+                {
+                    when,
+                    h.Title ?? "",
+                    snippet,
+                    h.AppName ?? "",
+                })
+                { Tag = h };
+                results.Items.Add(item);
+                if (previouslySelectedWindowId is long pid && h.WindowId == pid)
+                    restoreSelection = item;
+            }
+
+            if (restoreSelection != null)
+            {
+                restoreSelection.Selected = true;
+                restoreSelection.EnsureVisible();
+            }
+            else if (results.Items.Count > 0)
+            {
+                results.Items[0].Selected = true;
+            }
+            else
+            {
+                ClearPreview();
+            }
+
+            // Best-effort restore of scroll position (only when nothing was selected
+            // — if we re-selected the user's row it's already visible).
+            if (restoreSelection == null && previousTopIndex >= 0 && previousTopIndex < results.Items.Count)
+            {
+                try { results.TopItem = results.Items[previousTopIndex]; } catch { }
+            }
         }
-        results.EndUpdate();
-        if (results.Items.Count > 0) results.Items[0].Selected = true;
-        else ClearPreview();
+        finally { results.EndUpdate(); }
     }
 
     private async Task UpdatePreviewAsync()
