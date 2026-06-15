@@ -108,11 +108,11 @@ public partial class MainForm : Form
         settings = AppSettings.Load();
         captureOverride = opts.CaptureOverride;
 
-        var mode = "Unencrypted";
-        if (settings.EncryptionMode == EncryptionMode.Passphrase) mode = "Password Encrypted";
-        if (settings.EncryptionMode == EncryptionMode.UserAccount) mode = "User Account Encrypted";
-
-        this.Text = "TotalRecall (" + mode + ")";
+        // Window title is kept static ("TotalRecall") on purpose — the
+        // encryption state lives in the header summary line, which we
+        // refresh on every save, so the title would otherwise need its own
+        // refresh path and tends to get out of sync.
+        this.Text = "TotalRecall";
 
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
@@ -247,36 +247,40 @@ public partial class MainForm : Form
             settingsForm = new SettingsForm(settings);
             settingsForm.SettingsSaved += async (_, _) =>
             {
-                // If capture is currently running, we need to fully stop the
-                // timer (not just null out services) before the rekey can run,
-                // because background ticks would otherwise see a null service
-                // and silently no-op for the rest of the session even after
-                // the DB is back. We remember the running state so we can
-                // restart capture once re-encryption completes.
+                // Fast path: nothing that requires tearing down the database or
+                // OCR engine changed. Just repaint the header summary, refresh
+                // the Browse panel, and bounce out. This is what runs when the
+                // user opens Settings, tweaks a non-encryption field (or
+                // nothing at all), and hits Save & Close — no teardown means
+                // no UI freeze and no race conditions on a repeated save.
+                var newMode = settings.EncryptionMode;
+                var newPass = settings.RuntimePassphrase;
+                var encryptionChanged = newMode != oldMode
+                    || !string.Equals(oldPass ?? "", newPass ?? "", StringComparison.Ordinal);
+
+                RefreshCaptureSummary();
+                UpdateDbLabel();
+
+                if (!encryptionChanged)
+                {
+                    browsePanel.InvalidateData();
+                    browsePanel.ForceRefresh();
+                    if (settings != null && !settings.MinimizeToTray && !Visible) ShowFromTray();
+                    return;
+                }
+
+                // Slow path: encryption mode or passphrase changed, so we need
+                // to (a) stop capture cleanly, (b) drop all DB/OCR handles,
+                // (c) rekey the on-disk database file with the new key, and
+                // (d) re-attach + restart capture. Doing the rekey on the UI
+                // thread would freeze the app for tens of seconds on a 100+ MB
+                // DB, so it runs inside ReencryptionDialog on a worker task
+                // with a real progress bar.
                 bool wasCapturing = timer != null;
                 if (wasCapturing) Stop(waitForInflight: true);
                 DisposeServices();
-                RefreshCaptureSummary();
 
-                // Re-encrypt the existing DB file in place if the encryption mode
-                // or passphrase changed. Without this, the next AttachExistingDatabase
-                // call would fail with "file is not a database" (wrong key) or with
-                // a SQLCipher decrypt error.
-                //
-                // For non-trivial DBs the rekey is slow enough (seconds-to-minutes
-                // on 100+ MB files) that we must NOT do it on the UI thread.
-                // ReencryptionDialog runs the rekey on a background task while
-                // showing a progress bar driven by the temp file's growth, and
-                // blocks the rest of the app (modal) until it's done. The user
-                // can request a quit during the rekey; if they do, the dialog
-                // keeps running, finishes safely, and we Application.Exit on
-                // return so the file move + journal cleanup never gets cut off.
-                var newMode = settings.EncryptionMode;
-                var newPass = settings.RuntimePassphrase;
-                var changed = newMode != oldMode
-                            || !string.Equals(oldPass ?? "", newPass ?? "", StringComparison.Ordinal);
-
-                if (changed && File.Exists(settings.DatabasePath))
+                if (File.Exists(settings.DatabasePath))
                 {
                     string? newKey;
                     try { newKey = KeyVault.GetKey(settings); }
@@ -302,8 +306,6 @@ public partial class MainForm : Form
                             ShowError("Re-encryption failed",
                                 "Could not re-encrypt the database with the new key. " +
                                 "Your original database file has been preserved.\r\n\r\n" + dlg.Error.Message);
-                            // Don't quit even if user clicked Quit: the DB is unchanged,
-                            // so they probably want another shot.
                             TryAttachExistingDatabase();
                             if (wasCapturing) { try { await StartAsync(); } catch (Exception ex2) { ShowError("Restart failed", ex2.Message); } }
                             return;
@@ -315,8 +317,6 @@ public partial class MainForm : Form
                         {
                             // User asked to quit while the rekey was running.
                             // Rekey is now finished and the file is safe — exit.
-                            // OnFormClosingHandler still runs cleanly because
-                            // services were already disposed before the dialog.
                             shuttingDown = true;
                             Application.Exit();
                             return;
@@ -329,19 +329,12 @@ public partial class MainForm : Form
                 lastRetentionUtc = DateTime.MinValue;
                 RunRetentionSweep(force: true);
 
-                // Restart the capture timer if it was running before the
-                // settings change. EnsureServices() inside StartAsync()
-                // rebuilds ocr + service for the now-re-attached DB.
                 if (wasCapturing)
                 {
                     try { await StartAsync(); }
                     catch (Exception ex) { ShowError("Restart failed", ex.Message); }
                 }
 
-                // Force-refresh the results list now so the user sees data
-                // immediately after re-encryption — without this, the panel
-                // sits empty until the next capture tick (or never, if
-                // capture wasn't running) even though the DB is fully open.
                 browsePanel.InvalidateData();
                 browsePanel.ForceRefresh();
 
@@ -519,19 +512,30 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// Hides the main window to the system tray. Crucially we do NOT toggle
+    /// <see cref="Form.ShowInTaskbar"/> here — flipping it forces WinForms to
+    /// destroy and recreate the form's HWND (and every child control's HWND
+    /// with it), which produces a visible flicker on the way out and a slow,
+    /// staggered redraw on the way back in. A simple <see cref="Form.Hide"/>
+    /// is enough: hidden top-level forms are not shown in the taskbar.
+    /// </summary>
     private void HideToTray()
     {
         if (trayIcon != null) trayIcon.Visible = true;
-        ShowInTaskbar = false;
         Hide();
     }
 
+    /// <summary>
+    /// Restores the window from the system tray. Mirror of <see cref="HideToTray"/>
+    /// — no <see cref="Form.ShowInTaskbar"/> change so we avoid the handle
+    /// recreation pass that made the first redraw stutter for ~1 second.
+    /// </summary>
     private void ShowFromTray()
     {
         Show();
         if (WindowState == FormWindowState.Minimized)
             WindowState = FormWindowState.Normal;
-        ShowInTaskbar = true;
         Activate();
         BringToFront();
         Focus();
