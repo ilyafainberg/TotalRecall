@@ -12,7 +12,9 @@
 ; ============================================================================
 
 #define MyAppName        "TotalRecall"
-#define MyAppVersion     "1.1.1"
+#ifndef MyAppVersion
+  #define MyAppVersion   "1.2.0"
+#endif
 #define MyAppPublisher   "Ilya Fainberg"
 #define MyAppURL         "https://github.com/ilyafainberg/TotalRecall"
 #define MyAppExeName     "TotalRecall.exe"

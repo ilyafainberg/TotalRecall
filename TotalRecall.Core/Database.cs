@@ -29,9 +29,14 @@ namespace TotalRecall;
 /// <para>Schema (see <c>EnsureSchema</c>):</para>
 /// <list type="bullet">
 ///   <item><c>snapshots(id, captured_at_utc, user_name)</c> — one row per capture tick.</item>
-///   <item><c>windows(id, snapshot_id, title, app_name, …, image_jpeg BLOB, text_content)</c>
-///     — one row per stored window. <c>image_jpeg</c> is the on-disk JPEG payload; the
-///     bitmap itself never hits the filesystem outside the DB.</item>
+///   <item><c>windows(id, snapshot_id, title, app_name, …, image_bytes, text)</c>
+///     — one row per stored window. The JPEG payload no longer lives here: new captures
+///     write it to <c>window_images</c> and leave the legacy <c>image_jpeg</c> column NULL.
+///     <c>image_bytes</c> is retained as cheap size metadata.</item>
+///   <item><c>window_images(window_id, jpeg)</c> — 1:1 side table holding the JPEG blob,
+///     <c>ON DELETE CASCADE</c> from <c>windows</c>. Splitting the blobs out keeps the
+///     <c>windows</c> b-tree small so metadata/search scans stay fast on large databases.
+///     Reads fall back to the legacy inline <c>image_jpeg</c> for pre-split rows.</item>
 ///   <item><c>windows_fts</c> — external-content FTS5 virtual table mirroring
 ///     <c>title</c>, <c>app_name</c>, <c>text_content</c>. Three triggers keep it in sync
 ///     on INSERT/UPDATE/DELETE so searches stay correct after retention purges.</item>
@@ -84,7 +89,12 @@ public sealed class Database : IDisposable
         conn.Open();
         using (var pragma = conn.CreateCommand())
         {
-            pragma.CommandText = "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;";
+            // temp_store=MEMORY keeps ORDER BY/GROUP BY scratch off disk; a larger page
+            // cache (64 MB) dramatically cuts repeated reads on a large DB. (mmap is a
+            // no-op under SQLCipher, so we don't bother setting it.)
+            pragma.CommandText =
+                "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON; " +
+                "PRAGMA temp_store=MEMORY; PRAGMA cache_size=-65536;";
             pragma.ExecuteNonQuery();
         }
         return conn;
@@ -129,6 +139,15 @@ public sealed class Database : IDisposable
             );
             CREATE INDEX IF NOT EXISTS idx_windows_snapshot ON windows(snapshot_id);
             CREATE INDEX IF NOT EXISTS idx_windows_app     ON windows(app_name);
+
+            -- JPEG payloads live in a side table keyed 1:1 on the window row. Keeping the
+            -- (large) blobs out of the `windows` table keeps metadata/search scans fast and
+            -- the main b-tree small. `image_bytes` stays on `windows` as cheap metadata.
+            -- ON DELETE CASCADE means deleting a window row drops its image automatically.
+            CREATE TABLE IF NOT EXISTS window_images (
+                window_id   INTEGER PRIMARY KEY REFERENCES windows(id) ON DELETE CASCADE,
+                jpeg        BLOB NOT NULL
+            );
 
             CREATE VIRTUAL TABLE IF NOT EXISTS windows_fts USING fts5(
                 title, app_name, process_name, text,
@@ -213,6 +232,12 @@ public sealed class Database : IDisposable
             using (var cmd = conn.CreateCommand())
             {
                 cmd.Transaction = tx;
+                cmd.CommandText = "DELETE FROM window_images;";
+                cmd.ExecuteNonQuery();
+            }
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
                 cmd.CommandText = "DELETE FROM windows;";
                 cmd.ExecuteNonQuery();
             }
@@ -236,15 +261,36 @@ public sealed class Database : IDisposable
         if (days <= 0) return 0;
         var cutoff = DateTimeOffset.UtcNow.AddDays(-days).ToUnixTimeSeconds();
         using var conn = Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            UPDATE windows
-               SET image_jpeg = NULL, image_bytes = 0
-             WHERE image_jpeg IS NOT NULL
-               AND snapshot_id IN (SELECT id FROM snapshots WHERE ts_unix < $c);
-            """;
-        cmd.Parameters.AddWithValue("$c", cutoff);
-        return cmd.ExecuteNonQuery();
+        using var tx = conn.BeginTransaction();
+        int affected;
+        using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            // Drop the side-table blobs for old rows.
+            del.CommandText = """
+                DELETE FROM window_images
+                 WHERE window_id IN (
+                     SELECT w.id FROM windows w
+                      WHERE w.snapshot_id IN (SELECT id FROM snapshots WHERE ts_unix < $c));
+                """;
+            del.Parameters.AddWithValue("$c", cutoff);
+            del.ExecuteNonQuery();
+        }
+        using (var upd = conn.CreateCommand())
+        {
+            upd.Transaction = tx;
+            // Clear any legacy inline blobs and zero the metadata so size sums stay honest.
+            upd.CommandText = """
+                UPDATE windows
+                   SET image_jpeg = NULL, image_bytes = 0
+                 WHERE image_bytes > 0
+                   AND snapshot_id IN (SELECT id FROM snapshots WHERE ts_unix < $c);
+                """;
+            upd.Parameters.AddWithValue("$c", cutoff);
+            affected = upd.ExecuteNonQuery();
+        }
+        tx.Commit();
+        return affected;
     }
 
     /// <summary>
@@ -324,31 +370,47 @@ public sealed class Database : IDisposable
     private static void InsertWindow(SqliteConnection conn, SqliteTransaction? tx,
         long snapshotId, WindowRecord r, byte[]? jpeg)
     {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = """
-            INSERT INTO windows(snapshot_id, title, app_name, process_name, process_id, executable_path,
-                                is_foreground, bounds_x, bounds_y, bounds_w, bounds_h,
-                                text, ocr_error, ocr_duration_ms, image_jpeg, image_bytes)
-            VALUES($s,$t,$a,$pn,$pi,$ep,$f,$bx,$by,$bw,$bh,$tx,$oe,$od,$img,$ib);
-            """;
-        cmd.Parameters.AddWithValue("$s", snapshotId);
-        cmd.Parameters.AddWithValue("$t", (object?)r.Title ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$a", (object?)r.AppName ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$pn", (object?)r.ProcessName ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$pi", r.ProcessId);
-        cmd.Parameters.AddWithValue("$ep", (object?)r.ExecutablePath ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$f", r.IsForeground ? 1 : 0);
-        cmd.Parameters.AddWithValue("$bx", r.Bounds?.X ?? 0);
-        cmd.Parameters.AddWithValue("$by", r.Bounds?.Y ?? 0);
-        cmd.Parameters.AddWithValue("$bw", r.Bounds?.Width ?? 0);
-        cmd.Parameters.AddWithValue("$bh", r.Bounds?.Height ?? 0);
-        cmd.Parameters.AddWithValue("$tx", (object?)r.Text ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$oe", (object?)r.OcrError ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$od", r.OcrDurationMs);
-        cmd.Parameters.AddWithValue("$img", (object?)jpeg ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$ib", jpeg?.Length ?? 0);
-        cmd.ExecuteNonQuery();
+        long windowId;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            // New rows keep the JPEG out of the `windows` table entirely — the blob goes
+            // into `window_images` below. `image_jpeg` stays in the schema only so older
+            // databases (pre-split) remain readable; we never write to it anymore.
+            cmd.CommandText = """
+                INSERT INTO windows(snapshot_id, title, app_name, process_name, process_id, executable_path,
+                                    is_foreground, bounds_x, bounds_y, bounds_w, bounds_h,
+                                    text, ocr_error, ocr_duration_ms, image_jpeg, image_bytes)
+                VALUES($s,$t,$a,$pn,$pi,$ep,$f,$bx,$by,$bw,$bh,$tx,$oe,$od,NULL,$ib);
+                SELECT last_insert_rowid();
+                """;
+            cmd.Parameters.AddWithValue("$s", snapshotId);
+            cmd.Parameters.AddWithValue("$t", (object?)r.Title ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$a", (object?)r.AppName ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pn", (object?)r.ProcessName ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pi", r.ProcessId);
+            cmd.Parameters.AddWithValue("$ep", (object?)r.ExecutablePath ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$f", r.IsForeground ? 1 : 0);
+            cmd.Parameters.AddWithValue("$bx", r.Bounds?.X ?? 0);
+            cmd.Parameters.AddWithValue("$by", r.Bounds?.Y ?? 0);
+            cmd.Parameters.AddWithValue("$bw", r.Bounds?.Width ?? 0);
+            cmd.Parameters.AddWithValue("$bh", r.Bounds?.Height ?? 0);
+            cmd.Parameters.AddWithValue("$tx", (object?)r.Text ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$oe", (object?)r.OcrError ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$od", r.OcrDurationMs);
+            cmd.Parameters.AddWithValue("$ib", jpeg?.Length ?? 0);
+            windowId = (long)cmd.ExecuteScalar()!;
+        }
+
+        if (jpeg is { Length: > 0 })
+        {
+            using var img = conn.CreateCommand();
+            img.Transaction = tx;
+            img.CommandText = "INSERT INTO window_images(window_id, jpeg) VALUES($id, $j);";
+            img.Parameters.AddWithValue("$id", windowId);
+            img.Parameters.AddWithValue("$j", jpeg);
+            img.ExecuteNonQuery();
+        }
     }
 
     public long InsertSnapshotWithWindows(DateTimeOffset ts, string user, string machine,
@@ -407,7 +469,12 @@ public sealed class Database : IDisposable
             sql += " AND s.ts_unix <= $t";
             cmd.Parameters.AddWithValue("$t", to.Value.ToUnixTimeSeconds());
         }
-        sql += " ORDER BY s.ts_unix DESC, w.id DESC LIMIT $lim;";
+        // windows.id is AUTOINCREMENT, so it increases monotonically with capture time.
+        // Ordering by w.id DESC therefore yields newest-first WITHOUT sorting on a joined
+        // column — the planner just walks the windows primary key backwards and stops at
+        // LIMIT. This avoids a full sort of millions of rows on large databases, which is
+        // the difference between an instant Browse load and a multi-second hang.
+        sql += " ORDER BY w.id DESC LIMIT $lim;";
         cmd.Parameters.AddWithValue("$lim", limit);
         if (hasQuery) cmd.Parameters.AddWithValue("$q", matchQuery);
         cmd.CommandText = sql;
@@ -467,14 +534,19 @@ public sealed class Database : IDisposable
     {
         using var conn = Open();
         using var cmd = conn.CreateCommand();
+        // The image is lazy-loaded: callers pass includeImage:true only when a row is
+        // actually selected for preview, so list/search never drags blobs across the wire.
+        // COALESCE prefers the new side-table blob and falls back to the legacy inline
+        // `image_jpeg` column so pre-split databases still render screenshots.
         cmd.CommandText = $"""
             SELECT w.id, w.snapshot_id, s.ts, s.user, s.machine,
                    w.title, w.app_name, w.process_name, w.process_id, w.executable_path,
                    w.is_foreground, w.bounds_x, w.bounds_y, w.bounds_w, w.bounds_h,
                    w.text, w.ocr_error, w.ocr_duration_ms, w.image_bytes
-                   {(includeImage ? ", w.image_jpeg" : "")}
+                   {(includeImage ? ", COALESCE(wi.jpeg, w.image_jpeg)" : "")}
               FROM windows w
               JOIN snapshots s ON s.id = w.snapshot_id
+              {(includeImage ? "LEFT JOIN window_images wi ON wi.window_id = w.id" : "")}
              WHERE w.id = $id;
             """;
         cmd.Parameters.AddWithValue("$id", windowId);

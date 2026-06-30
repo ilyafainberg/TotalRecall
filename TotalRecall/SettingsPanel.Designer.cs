@@ -33,8 +33,10 @@ partial class SettingsPanel
         titleLbl = new Label();
         intervalCaptionLbl = new Label();
         intervalNud = new NumericUpDown();
+        searchLimitCaptionLbl = new Label();
+        searchLimitNud = new NumericUpDown();
         qualityCaptionLbl = new Label();
-        qualityBar = new TrackBar();
+        qualityBar = new NoScrollTrackBar();
         qualityValueLbl = new Label();
         storeImagesChk = new CheckBox();
         performanceCaptionLbl = new Label();
@@ -74,6 +76,7 @@ partial class SettingsPanel
         cancelBtn = new Button();
         card.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)intervalNud).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)searchLimitNud).BeginInit();
         ((System.ComponentModel.ISupportInitialize)qualityBar).BeginInit();
         ((System.ComponentModel.ISupportInitialize)ocrMaxDimensionNud).BeginInit();
         ((System.ComponentModel.ISupportInitialize)purgeImagesNud).BeginInit();
@@ -88,6 +91,8 @@ partial class SettingsPanel
         card.Controls.Add(titleLbl);
         card.Controls.Add(intervalCaptionLbl);
         card.Controls.Add(intervalNud);
+        card.Controls.Add(searchLimitCaptionLbl);
+        card.Controls.Add(searchLimitNud);
         card.Controls.Add(qualityCaptionLbl);
         card.Controls.Add(qualityBar);
         card.Controls.Add(qualityValueLbl);
@@ -174,6 +179,28 @@ partial class SettingsPanel
         intervalNud.TabIndex = 2;
         intervalNud.Value = new decimal(new int[] { 10, 0, 0, 0 });
         // 
+        // searchLimitCaptionLbl
+        // 
+        searchLimitCaptionLbl.AutoSize = true;
+        searchLimitCaptionLbl.Font = new Font("Segoe UI Semibold", 9.5F);
+        searchLimitCaptionLbl.ForeColor = Color.FromArgb(28, 28, 30);
+        searchLimitCaptionLbl.Location = new Point(300, 60);
+        searchLimitCaptionLbl.Name = "searchLimitCaptionLbl";
+        searchLimitCaptionLbl.Size = new Size(180, 17);
+        searchLimitCaptionLbl.TabIndex = 41;
+        searchLimitCaptionLbl.Text = "Search result limit (rows)";
+        // 
+        // searchLimitNud
+        // 
+        searchLimitNud.Increment = new decimal(new int[] { 50, 0, 0, 0 });
+        searchLimitNud.Location = new Point(300, 84);
+        searchLimitNud.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
+        searchLimitNud.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
+        searchLimitNud.Name = "searchLimitNud";
+        searchLimitNud.Size = new Size(120, 23);
+        searchLimitNud.TabIndex = 42;
+        searchLimitNud.Value = new decimal(new int[] { 200, 0, 0, 0 });
+        // 
         // qualityCaptionLbl
         // 
         qualityCaptionLbl.AutoSize = true;
@@ -191,7 +218,7 @@ partial class SettingsPanel
         qualityBar.Maximum = 95;
         qualityBar.Minimum = 30;
         qualityBar.Name = "qualityBar";
-        qualityBar.Size = new Size(480, 45);
+        qualityBar.Size = new Size(480, 40);
         qualityBar.TabIndex = 4;
         qualityBar.TickFrequency = 5;
         qualityBar.Value = 75;
@@ -214,7 +241,7 @@ partial class SettingsPanel
         storeImagesChk.CheckState = CheckState.Checked;
         storeImagesChk.Font = new Font("Segoe UI", 9.5F);
         storeImagesChk.ForeColor = Color.FromArgb(28, 28, 30);
-        storeImagesChk.Location = new Point(24, 202);
+        storeImagesChk.Location = new Point(24, 212);
         storeImagesChk.Name = "storeImagesChk";
         storeImagesChk.Size = new Size(403, 21);
         storeImagesChk.TabIndex = 6;
@@ -426,7 +453,7 @@ partial class SettingsPanel
         hintLbl.Name = "hintLbl";
         hintLbl.Size = new Size(590, 60);
         hintLbl.TabIndex = 17;
-        hintLbl.Text = "Note: changing encryption mode or passphrase only affects newly-created databases. To re-encrypt an existing DB, point to a new file path and re-capture.";
+        hintLbl.Text = "Note: changing the encryption mode or passphrase re-encrypts your existing database in place when you save. This can take a while for large databases; your captured data is preserved.";
         // 
         // behaviorCaptionLbl
         // 
@@ -647,6 +674,7 @@ partial class SettingsPanel
         card.ResumeLayout(false);
         card.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)intervalNud).EndInit();
+        ((System.ComponentModel.ISupportInitialize)searchLimitNud).EndInit();
         ((System.ComponentModel.ISupportInitialize)qualityBar).EndInit();
         ((System.ComponentModel.ISupportInitialize)ocrMaxDimensionNud).EndInit();
         ((System.ComponentModel.ISupportInitialize)purgeImagesNud).EndInit();
@@ -659,8 +687,10 @@ partial class SettingsPanel
     private System.Windows.Forms.Label titleLbl;
     private System.Windows.Forms.Label intervalCaptionLbl;
     private System.Windows.Forms.NumericUpDown intervalNud;
+    private System.Windows.Forms.Label searchLimitCaptionLbl;
+    private System.Windows.Forms.NumericUpDown searchLimitNud;
     private System.Windows.Forms.Label qualityCaptionLbl;
-    private System.Windows.Forms.TrackBar qualityBar;
+    private TotalRecall.NoScrollTrackBar qualityBar;
     private System.Windows.Forms.Label qualityValueLbl;
     private System.Windows.Forms.CheckBox storeImagesChk;
     private System.Windows.Forms.Label performanceCaptionLbl;

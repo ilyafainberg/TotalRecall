@@ -35,22 +35,21 @@ partial class BrowsePanel
         lblApp = new Label();
         appCombo = new ComboBox();
         lblDate = new Label();
-        useDateRange = new CheckBox();
+        rangeCombo = new ComboBox();
         fromDate = new DateTimePicker();
+        customToLbl = new Label();
         toDate = new DateTimePicker();
-        lblLim = new Label();
-        limitNud = new NumericUpDown();
         searchBtn = new Button();
         refreshBtn = new Button();
         resultsCountLbl = new Label();
         topSpacer = new Panel();
-        outerSplit = new SplitContainer();
+        outerSplit = new CleanSplitContainer();
         results = new ListView();
         colWhen = new ColumnHeader();
         colTitle = new ColumnHeader();
         colSnippet = new ColumnHeader();
         colApp = new ColumnHeader();
-        innerSplit = new SplitContainer();
+        innerSplit = new CleanSplitContainer();
         previewContainer = new Panel();
         preview = new ZoomablePicturePanel();
         previewCtx = new ContextMenuStrip(components);
@@ -70,7 +69,6 @@ partial class BrowsePanel
         copyTextBtn = new Button();
         collapseTextBtn = new Button();
         searchCard.SuspendLayout();
-        ((System.ComponentModel.ISupportInitialize)limitNud).BeginInit();
         ((System.ComponentModel.ISupportInitialize)outerSplit).BeginInit();
         outerSplit.Panel1.SuspendLayout();
         outerSplit.Panel2.SuspendLayout();
@@ -94,11 +92,10 @@ partial class BrowsePanel
         searchCard.Controls.Add(lblApp);
         searchCard.Controls.Add(appCombo);
         searchCard.Controls.Add(lblDate);
-        searchCard.Controls.Add(useDateRange);
+        searchCard.Controls.Add(rangeCombo);
         searchCard.Controls.Add(fromDate);
+        searchCard.Controls.Add(customToLbl);
         searchCard.Controls.Add(toDate);
-        searchCard.Controls.Add(lblLim);
-        searchCard.Controls.Add(limitNud);
         searchCard.Controls.Add(searchBtn);
         searchCard.Controls.Add(refreshBtn);
         searchCard.Controls.Add(resultsCountLbl);
@@ -164,55 +161,49 @@ partial class BrowsePanel
         lblDate.Name = "lblDate";
         lblDate.Size = new Size(64, 15);
         lblDate.TabIndex = 4;
-        lblDate.Text = "Date range";
+        lblDate.Text = "Time range";
         // 
-        // useDateRange
+        // rangeCombo
         // 
-        useDateRange.AutoSize = true;
-        useDateRange.Font = new Font("Segoe UI", 9.5F);
-        useDateRange.ForeColor = Color.FromArgb(102, 102, 108);
-        useDateRange.Location = new Point(604, 30);
-        useDateRange.Name = "useDateRange";
-        useDateRange.Size = new Size(53, 21);
-        useDateRange.TabIndex = 5;
-        useDateRange.Text = "filter";
+        rangeCombo.BackColor = Color.FromArgb(245, 245, 247);
+        rangeCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        rangeCombo.FlatStyle = FlatStyle.Flat;
+        rangeCombo.ForeColor = Color.FromArgb(28, 28, 30);
+        rangeCombo.Items.AddRange(new object[] { "Any time", "Today", "Last 24 hours", "Last 7 days", "Last 30 days", "This year", "Custom…" });
+        rangeCombo.Location = new Point(604, 29);
+        rangeCombo.Name = "rangeCombo";
+        rangeCombo.Size = new Size(140, 23);
+        rangeCombo.TabIndex = 5;
         // 
         // fromDate
         // 
         fromDate.Format = DateTimePickerFormat.Short;
-        fromDate.Location = new Point(660, 28);
+        fromDate.Location = new Point(750, 29);
         fromDate.Name = "fromDate";
-        fromDate.Size = new Size(130, 23);
+        fromDate.Size = new Size(120, 23);
         fromDate.TabIndex = 6;
+        fromDate.Visible = false;
+        // 
+        // customToLbl
+        // 
+        customToLbl.AutoSize = true;
+        customToLbl.Font = new Font("Segoe UI", 9.5F);
+        customToLbl.ForeColor = Color.FromArgb(102, 102, 108);
+        customToLbl.Location = new Point(874, 32);
+        customToLbl.Name = "customToLbl";
+        customToLbl.Size = new Size(18, 17);
+        customToLbl.TabIndex = 7;
+        customToLbl.Text = "to";
+        customToLbl.Visible = false;
         // 
         // toDate
         // 
         toDate.Format = DateTimePickerFormat.Short;
-        toDate.Location = new Point(800, 28);
+        toDate.Location = new Point(898, 29);
         toDate.Name = "toDate";
-        toDate.Size = new Size(130, 23);
-        toDate.TabIndex = 7;
-        // 
-        // lblLim
-        // 
-        lblLim.AutoSize = true;
-        lblLim.Font = new Font("Segoe UI", 8.5F);
-        lblLim.ForeColor = Color.FromArgb(102, 102, 108);
-        lblLim.Location = new Point(944, 8);
-        lblLim.Name = "lblLim";
-        lblLim.Size = new Size(34, 15);
-        lblLim.TabIndex = 8;
-        lblLim.Text = "Limit";
-        // 
-        // limitNud
-        // 
-        limitNud.Location = new Point(944, 30);
-        limitNud.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
-        limitNud.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
-        limitNud.Name = "limitNud";
-        limitNud.Size = new Size(70, 23);
-        limitNud.TabIndex = 9;
-        limitNud.Value = new decimal(new int[] { 200, 0, 0, 0 });
+        toDate.Size = new Size(120, 23);
+        toDate.TabIndex = 8;
+        toDate.Visible = false;
         // 
         // searchBtn
         // 
@@ -298,7 +289,7 @@ partial class BrowsePanel
         results.Font = new Font("Segoe UI", 9.5F);
         results.ForeColor = Color.FromArgb(28, 28, 30);
         results.FullRowSelect = true;
-        results.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+        results.HeaderStyle = ColumnHeaderStyle.Clickable;
         results.Location = new Point(12, 12);
         results.MultiSelect = false;
         results.Name = "results";
@@ -459,12 +450,12 @@ partial class BrowsePanel
         toggleSnippetBtn.FlatStyle = FlatStyle.Flat;
         toggleSnippetBtn.Font = new Font("Segoe UI Semibold", 9F);
         toggleSnippetBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        toggleSnippetBtn.Location = new Point(474, 0);
+        toggleSnippetBtn.Location = new Point(514, 0);
         toggleSnippetBtn.Name = "toggleSnippetBtn";
         toggleSnippetBtn.Padding = new Padding(6, 0, 6, 0);
-        toggleSnippetBtn.Size = new Size(76, 25);
+        toggleSnippetBtn.Size = new Size(36, 25);
         toggleSnippetBtn.TabIndex = 5;
-        toggleSnippetBtn.Text = "Snippet ▢";
+        toggleSnippetBtn.Text = "";
         toggleSnippetBtn.UseVisualStyleBackColor = false;
         toggleSnippetBtn.Visible = false;
         // 
@@ -565,7 +556,7 @@ partial class BrowsePanel
         collapseTextBtn.Padding = new Padding(6, 0, 6, 0);
         collapseTextBtn.Size = new Size(36, 28);
         collapseTextBtn.TabIndex = 2;
-        collapseTextBtn.Text = "✕";
+        collapseTextBtn.Text = "";
         collapseTextBtn.UseVisualStyleBackColor = false;
         // 
         // BrowsePanel
@@ -581,7 +572,6 @@ partial class BrowsePanel
         Size = new Size(1381, 912);
         searchCard.ResumeLayout(false);
         searchCard.PerformLayout();
-        ((System.ComponentModel.ISupportInitialize)limitNud).EndInit();
         outerSplit.Panel1.ResumeLayout(false);
         outerSplit.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)outerSplit).EndInit();
@@ -606,18 +596,17 @@ partial class BrowsePanel
     private System.Windows.Forms.Label lblApp;
     private System.Windows.Forms.ComboBox appCombo;
     private System.Windows.Forms.Label lblDate;
-    private System.Windows.Forms.CheckBox useDateRange;
+    private System.Windows.Forms.ComboBox rangeCombo;
     private System.Windows.Forms.DateTimePicker fromDate;
+    private System.Windows.Forms.Label customToLbl;
     private System.Windows.Forms.DateTimePicker toDate;
-    private System.Windows.Forms.Label lblLim;
-    private System.Windows.Forms.NumericUpDown limitNud;
     private System.Windows.Forms.Button searchBtn;
     private System.Windows.Forms.Button refreshBtn;
     private System.Windows.Forms.Label resultsCountLbl;
     private System.Windows.Forms.Panel topSpacer;
 
-    private System.Windows.Forms.SplitContainer outerSplit;
-    private System.Windows.Forms.SplitContainer innerSplit;
+    private TotalRecall.CleanSplitContainer outerSplit;
+    private TotalRecall.CleanSplitContainer innerSplit;
 
     private System.Windows.Forms.ListView results;
     private System.Windows.Forms.ColumnHeader colWhen;

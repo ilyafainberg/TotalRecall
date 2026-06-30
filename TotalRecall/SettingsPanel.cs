@@ -75,6 +75,7 @@ public partial class SettingsPanel : UserControl
     {
         this.settings = settings;
         intervalNud.Value = Math.Clamp(settings.IntervalSeconds, (int)intervalNud.Minimum, (int)intervalNud.Maximum);
+        searchLimitNud.Value = Math.Clamp(settings.SearchResultLimit, (int)searchLimitNud.Minimum, (int)searchLimitNud.Maximum);
         qualityBar.Value = Math.Clamp(settings.JpegQuality, qualityBar.Minimum, qualityBar.Maximum);
         qualityValueLbl.Text = qualityBar.Value.ToString();
         storeImagesChk.Checked = settings.StoreScreenshots;
@@ -141,6 +142,7 @@ public partial class SettingsPanel : UserControl
         if (settings == null) return;
 
         settings.IntervalSeconds = (int)intervalNud.Value;
+        settings.SearchResultLimit = (int)searchLimitNud.Value;
         settings.JpegQuality = qualityBar.Value;
         settings.StoreScreenshots = storeImagesChk.Checked;
         settings.EnableChangeDetection = changeDetectionChk.Checked;

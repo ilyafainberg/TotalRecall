@@ -23,9 +23,7 @@ partial class MainForm
     {
         headerPanel = new Panel();
         menuBtn = new Button();
-        quitBtn = new Button();
         capStartBtn = new Button();
-        capStopBtn = new Button();
         capLastLbl = new Label();
         capInfoLbl = new Label();
         capStateLbl = new Label();
@@ -43,9 +41,7 @@ partial class MainForm
         // 
         headerPanel.BackColor = Color.FromArgb(235, 235, 238);
         headerPanel.Controls.Add(menuBtn);
-        headerPanel.Controls.Add(quitBtn);
         headerPanel.Controls.Add(capStartBtn);
-        headerPanel.Controls.Add(capStopBtn);
         headerPanel.Controls.Add(capLastLbl);
         headerPanel.Controls.Add(capInfoLbl);
         headerPanel.Controls.Add(capStateLbl);
@@ -67,29 +63,12 @@ partial class MainForm
         menuBtn.FlatStyle = FlatStyle.Flat;
         menuBtn.Font = new Font("Segoe UI Symbol", 12F);
         menuBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        menuBtn.Location = new Point(1324, 15);
+        menuBtn.Location = new Point(1426, 15);
         menuBtn.Name = "menuBtn";
         menuBtn.Size = new Size(40, 32);
         menuBtn.TabIndex = 2;
         menuBtn.Text = "☰";
         menuBtn.UseVisualStyleBackColor = false;
-        // 
-        // quitBtn
-        // 
-        quitBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        quitBtn.BackColor = Color.FromArgb(245, 245, 247);
-        quitBtn.Cursor = Cursors.Hand;
-        quitBtn.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 215);
-        quitBtn.FlatStyle = FlatStyle.Flat;
-        quitBtn.Font = new Font("Segoe UI Semibold", 9.5F);
-        quitBtn.ForeColor = Color.FromArgb(196, 43, 28);
-        quitBtn.Location = new Point(1370, 15);
-        quitBtn.Name = "quitBtn";
-        quitBtn.Padding = new Padding(8, 0, 8, 0);
-        quitBtn.Size = new Size(96, 32);
-        quitBtn.TabIndex = 3;
-        quitBtn.Text = "✕  Quit";
-        quitBtn.UseVisualStyleBackColor = false;
         // 
         // capStartBtn
         // 
@@ -100,7 +79,7 @@ partial class MainForm
         capStartBtn.FlatStyle = FlatStyle.Flat;
         capStartBtn.Font = new Font("Segoe UI Semibold", 9.5F);
         capStartBtn.ForeColor = Color.White;
-        capStartBtn.Location = new Point(1118, 15);
+        capStartBtn.Location = new Point(1306, 15);
         capStartBtn.Name = "capStartBtn";
         capStartBtn.Padding = new Padding(8, 0, 8, 0);
         capStartBtn.Size = new Size(105, 32);
@@ -108,35 +87,17 @@ partial class MainForm
         capStartBtn.Text = "▶  Start";
         capStartBtn.UseVisualStyleBackColor = false;
         // 
-        // capStopBtn
-        // 
-        capStopBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        capStopBtn.BackColor = Color.FromArgb(235, 235, 238);
-        capStopBtn.Cursor = Cursors.Hand;
-        capStopBtn.Enabled = false;
-        capStopBtn.FlatAppearance.BorderColor = Color.FromArgb(210, 210, 215);
-        capStopBtn.FlatStyle = FlatStyle.Flat;
-        capStopBtn.Font = new Font("Segoe UI Semibold", 9.5F);
-        capStopBtn.ForeColor = Color.FromArgb(28, 28, 30);
-        capStopBtn.Location = new Point(1229, 15);
-        capStopBtn.Name = "capStopBtn";
-        capStopBtn.Padding = new Padding(8, 0, 8, 0);
-        capStopBtn.Size = new Size(89, 32);
-        capStopBtn.TabIndex = 9;
-        capStopBtn.Text = "■  Stop";
-        capStopBtn.UseVisualStyleBackColor = false;
-        // 
         // capLastLbl
         // 
         capLastLbl.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         capLastLbl.Font = new Font("Segoe UI", 9F);
         capLastLbl.ForeColor = Color.FromArgb(102, 102, 108);
-        capLastLbl.Location = new Point(1118, 50);
+        capLastLbl.Location = new Point(1186, 50);
         capLastLbl.Name = "capLastLbl";
         capLastLbl.Size = new Size(280, 19);
         capLastLbl.TabIndex = 7;
         capLastLbl.Text = "Last: —";
-        capLastLbl.TextAlign = ContentAlignment.MiddleLeft;
+        capLastLbl.TextAlign = ContentAlignment.MiddleRight;
         // 
         // capInfoLbl
         // 
@@ -255,9 +216,7 @@ partial class MainForm
     private System.Windows.Forms.Label capInfoLbl;
     private System.Windows.Forms.Label capLastLbl;
     private System.Windows.Forms.Button capStartBtn;
-    private System.Windows.Forms.Button capStopBtn;
     private System.Windows.Forms.Button menuBtn;
-    private System.Windows.Forms.Button quitBtn;
     private TotalRecall.BrowsePanel browsePanel;
     private System.Windows.Forms.Panel statusPanel;
     private System.Windows.Forms.Label statusLbl;

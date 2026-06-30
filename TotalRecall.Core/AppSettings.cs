@@ -85,6 +85,9 @@ public sealed class AppSettings
     /// <summary>Longest side (in pixels) before OCR pre-processing downscales the bitmap. Clamped 400..3840.</summary>
     public int OcrMaxDimension { get; set; } = 1600;
 
+    /// <summary>Maximum number of rows returned by a Browse-pane search query. UI clamps to 10..5000.</summary>
+    public int SearchResultLimit { get; set; } = 200;
+
     /// <summary>Register/unregister a per-user HKCU Run entry on save.</summary>
     public bool StartAtLogin { get; set; } = false;
 

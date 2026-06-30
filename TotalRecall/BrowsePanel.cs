@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -55,10 +56,30 @@ public partial class BrowsePanel : UserControl
     private WindowDetail? currentDetail;
     private int? lastInnerSplitterDistance;
 
+    /// <summary>Maximum rows a search returns; sourced from <see cref="AppSettings.SearchResultLimit"/>.</summary>
+    [System.ComponentModel.Browsable(false)]
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public int ResultLimit { get; set; } = 200;
+
+    // Default time scope on first load. With a large DB we bound the initial query to a
+    // recent window so the Browse pane never scans the whole database on open.
+    private const string DefaultRange = "Last 7 days";
+
+    // Monotonic search id. Each search bumps it; a completed search only updates the UI
+    // if it's still the latest, which serialises overlapping requests.
+    private int searchGen;
+
+    // Result sort state. Column indices: 0=When, 1=Title, 2=Snippet, 3=App.
+    // Default matches the DB query order: newest first (When, descending).
+    private static readonly string[] colBase = { "When", "Title", "Snippet", "App" };
+    private int sortColumn;
+    private bool sortAscending;
+
     // Snapshot of the app-name filter the combo currently shows. Cheap
     // string-set compare lets us skip rebuilding the combo on every tick
     // (which flickers, drops the dropdown, and loses the typing caret).
     private HashSet<string> lastAppFilterSet = new(StringComparer.Ordinal);
+    private DateTime lastAppFilterLoadUtc = DateTime.MinValue;
 
     // Coalesce refresh requests: TickAsync fires every N seconds, but if a
     // refresh is already running we'll just mark dirty and the in-flight
@@ -68,6 +89,7 @@ public partial class BrowsePanel : UserControl
     public BrowsePanel()
     {
         InitializeComponent();
+        BuildCollapseIcons();
         WireEvents();
         WireZoom();
         WireContextMenus();
@@ -78,6 +100,50 @@ public partial class BrowsePanel : UserControl
             // surface any data the tick produced while we weren't looking.
             if (Visible) RefreshIfNeeded();
         };
+    }
+
+    /// <summary>
+    /// Generates the arrow-bar glyphs for the snippet collapse / restore buttons. We draw
+    /// them in code (instead of shipping image assets) so they stay crisp and theme-coloured.
+    /// The shapes mirror Bootstrap's <c>arrow-bar-right</c> (collapse the panel rightward)
+    /// and <c>arrow-bar-left</c> (bring it back).
+    /// </summary>
+    private void BuildCollapseIcons()
+    {
+        collapseTextBtn.Image = MakeBarArrow(pointRight: true);
+        collapseTextBtn.ImageAlign = ContentAlignment.MiddleCenter;
+        toggleSnippetBtn.Image = MakeBarArrow(pointRight: false);
+        toggleSnippetBtn.ImageAlign = ContentAlignment.MiddleCenter;
+    }
+
+    private static Bitmap MakeBarArrow(bool pointRight)
+    {
+        var bmp = new Bitmap(16, 16);
+        bmp.SetResolution(96, 96);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = new Pen(Color.FromArgb(28, 28, 30), 1.6f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round,
+        };
+        const int mid = 8;
+        if (pointRight)
+        {
+            g.DrawLine(pen, 13, 3, 13, 13);   // bar on the right edge
+            g.DrawLine(pen, 3, mid, 11, mid);  // shaft
+            g.DrawLine(pen, 11, mid, 8, mid - 3);
+            g.DrawLine(pen, 11, mid, 8, mid + 3);
+        }
+        else
+        {
+            g.DrawLine(pen, 3, 3, 3, 13);     // bar on the left edge
+            g.DrawLine(pen, 13, mid, 5, mid);  // shaft
+            g.DrawLine(pen, 5, mid, 8, mid - 3);
+            g.DrawLine(pen, 5, mid, 8, mid + 3);
+        }
+        return bmp;
     }
 
     /// <summary>
@@ -100,13 +166,24 @@ public partial class BrowsePanel : UserControl
     {
         searchBox.KeyDown += (s, e) =>
         {
-            if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = DoSearchAsync(); }
+            if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = DoSearchAsync(userInitiated: true); }
         };
         appCombo.KeyDown += (s, e) =>
         {
-            if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = DoSearchAsync(); }
+            if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = DoSearchAsync(userInitiated: true); }
         };
-        searchBtn.Click += async (_, _) => await DoSearchAsync();
+        searchBtn.Click += async (_, _) => await DoSearchAsync(userInitiated: true);
+
+        // Picking a time range *is* the action — no separate Filter button. "Custom…"
+        // reveals the two date pickers; everything else searches immediately.
+        rangeCombo.SelectedIndexChanged += async (_, _) =>
+        {
+            UpdateCustomRangeVisibility();
+            await DoSearchAsync(userInitiated: true);
+        };
+        fromDate.ValueChanged += async (_, _) => { if (IsCustomRange) await DoSearchAsync(userInitiated: true); };
+        toDate.ValueChanged += async (_, _) => { if (IsCustomRange) await DoSearchAsync(userInitiated: true); };
+
         refreshBtn.Click += async (_, _) =>
         {
             searchBox.Text = "";
@@ -115,17 +192,109 @@ public partial class BrowsePanel : UserControl
                 appCombo.SelectedIndex = 0;
                 appCombo.Text = "(all apps)";
             }
-            useDateRange.Checked = false;
-            await DoSearchAsync();
+            rangeCombo.SelectedItem = DefaultRange;
+            UpdateCustomRangeVisibility();
+            await DoSearchAsync(userInitiated: true);
         };
         results.SelectedIndexChanged += async (_, _) => await UpdatePreviewAsync();
+        results.ColumnClick += OnColumnClick;
 
         copyTextBtn.Click += (_, _) => CopyTextToClipboard();
         collapseTextBtn.Click += (_, _) => CollapseTextPane();
         toggleSnippetBtn.Click += (_, _) => RestoreTextPane();
 
         fromDate.Value = DateTime.Today.AddDays(-7);
-        toDate.Value = DateTime.Today.AddDays(1);
+        toDate.Value = DateTime.Today;
+        rangeCombo.SelectedItem = DefaultRange;
+        UpdateCustomRangeVisibility();
+        UpdateSortIndicators();
+    }
+
+    private bool IsCustomRange => (rangeCombo.SelectedItem as string) == "Custom…";
+
+    private void UpdateCustomRangeVisibility()
+    {
+        var custom = IsCustomRange;
+        fromDate.Visible = custom;
+        customToLbl.Visible = custom;
+        toDate.Visible = custom;
+    }
+
+    /// <summary>
+    /// Resolves the selected preset into an inclusive [from, to] window, or (null, null) for
+    /// "Any time". Presets are anchored to "now" so they always mean what the label says.
+    /// </summary>
+    private (DateTimeOffset? from, DateTimeOffset? to) ResolveTimeRange()
+    {
+        var now = DateTimeOffset.Now;
+        var today = DateTime.Today;
+        if (IsCustomRange)
+        {
+            // Guard against an inverted range (user sets the "to" date before the "from"
+            // date) — swap so the window is always [earlier, later] and still returns rows
+            // instead of silently showing nothing.
+            var a = fromDate.Value.Date;
+            var b = toDate.Value.Date;
+            var lo = a <= b ? a : b;
+            var hi = a <= b ? b : a;
+            return (new DateTimeOffset(lo), new DateTimeOffset(hi.AddDays(1).AddSeconds(-1)));
+        }
+        return (rangeCombo.SelectedItem as string) switch
+        {
+            "Today"         => (new DateTimeOffset(today), now),
+            "Last 24 hours" => (now.AddHours(-24), now),
+            "Last 7 days"   => (new DateTimeOffset(today.AddDays(-6)), now),
+            "Last 30 days"  => (new DateTimeOffset(today.AddDays(-29)), now),
+            "This year"     => (new DateTimeOffset(new DateTime(today.Year, 1, 1)), now),
+            _               => (null, null), // "Any time"
+        };
+    }
+
+    // --- Column sorting -------------------------------------------------
+
+    private void OnColumnClick(object? sender, ColumnClickEventArgs e)
+    {
+        if (e.Column == sortColumn)
+        {
+            sortAscending = !sortAscending;
+        }
+        else
+        {
+            sortColumn = e.Column;
+            // Time defaults to newest-first; text columns default to A→Z.
+            sortAscending = e.Column != 0;
+        }
+        UpdateSortIndicators();
+        PopulateResults();
+    }
+
+    private void UpdateSortIndicators()
+    {
+        for (int i = 0; i < results.Columns.Count && i < colBase.Length; i++)
+        {
+            var arrow = i == sortColumn ? (sortAscending ? "  ▲" : "  ▼") : "";
+            results.Columns[i].Text = colBase[i] + arrow;
+        }
+    }
+
+    private void SortHits()
+    {
+        Comparison<SearchHit> cmp = sortColumn switch
+        {
+            1 => (a, b) => string.Compare(a.Title ?? "", b.Title ?? "", StringComparison.OrdinalIgnoreCase),
+            2 => (a, b) => string.Compare(a.Snippet ?? "", b.Snippet ?? "", StringComparison.OrdinalIgnoreCase),
+            3 => (a, b) => string.Compare(a.AppName ?? "", b.AppName ?? "", StringComparison.OrdinalIgnoreCase),
+            _ => CompareWhen,
+        };
+        hits.Sort(cmp);
+        if (!sortAscending) hits.Reverse();
+    }
+
+    private static int CompareWhen(SearchHit a, SearchHit b)
+    {
+        DateTimeOffset.TryParse(a.Timestamp, out var da);
+        DateTimeOffset.TryParse(b.Timestamp, out var dbb);
+        return da.CompareTo(dbb);
     }
 
     private void WireZoom()
@@ -180,7 +349,7 @@ public partial class BrowsePanel : UserControl
         if (appCombo.Focused && appCombo.DroppedDown) return;
 
         dirty = false;
-        ReloadAppFilter();
+        ReloadAppFilter(force: false);
         _ = DoSearchAsync();
     }
 
@@ -193,8 +362,8 @@ public partial class BrowsePanel : UserControl
     {
         if (db == null) return;
         dirty = false;
-        ReloadAppFilter();
-        _ = DoSearchAsync();
+        ReloadAppFilter(force: true);
+        _ = DoSearchAsync(userInitiated: true);
     }
 
     public void FocusSearch()
@@ -208,9 +377,16 @@ public partial class BrowsePanel : UserControl
     /// DB actually changed since last time. This stops every tick from
     /// blowing away the user's current selection / dropdown position.
     /// </summary>
-    private void ReloadAppFilter()
+    private void ReloadAppFilter(bool force)
     {
         if (db == null) return;
+        // The distinct-app query scans the whole app_name index. On a multi-GB DB that's
+        // wasteful to run on every capture tick, so throttle auto-refreshes to once a
+        // minute. Explicit refreshes (force) always re-query.
+        if (!force && appCombo.Items.Count > 0
+            && (DateTime.UtcNow - lastAppFilterLoadUtc) < TimeSpan.FromMinutes(1))
+            return;
+        lastAppFilterLoadUtc = DateTime.UtcNow;
         try
         {
             var current = db.GetDistinctAppNames().ToList();
@@ -246,47 +422,72 @@ public partial class BrowsePanel : UserControl
         catch { /* combo rebuild is cosmetic — never break the panel */ }
     }
 
-    private async Task DoSearchAsync()
+    private async Task DoSearchAsync(bool userInitiated = false)
     {
         if (db == null) { ClearUi(); return; }
         var query = searchBox.Text.Trim();
         var appText = (appCombo.Text ?? "").Trim();
         string? app = (appText.Length == 0 || appText == "(all apps)") ? null : appText;
-        DateTimeOffset? from = null, to = null;
-        if (useDateRange.Checked)
-        {
-            from = new DateTimeOffset(fromDate.Value.Date);
-            to = new DateTimeOffset(toDate.Value.Date.AddDays(1).AddSeconds(-1));
-        }
-        int limit = (int)limitNud.Value;
+        var (from, to) = ResolveTimeRange();
+        int limit = ResultLimit;
 
+        // Single-flight + generation guard. Each call bumps the generation; when a query
+        // completes we only touch the UI if no newer query has started since. This stops
+        // overlapping user clicks (e.g. Filter, Filter again) from fighting over the panel
+        // and looping the "Loading…" state forever.
+        var myGen = ++searchGen;
         refreshInFlight = true;
-        searchBtn.Enabled = false;
-        // Don't flash a "Searching…" message on every auto-tick — only when
-        // the count would actually be empty. Auto-refreshes should feel
-        // invisible; user-initiated searches will still see it via the
-        // initial empty state.
-        var showProgress = hits.Count == 0;
-        if (showProgress) resultsCountLbl.Text = "Searching…";
+        if (userInitiated) SetBusy(true);
+        else searchBtn.Enabled = false;
+        if (userInitiated || hits.Count == 0) resultsCountLbl.Text = "Loading…";
         try
         {
             var newHits = await Task.Run(() => db.Search(query, app, from, to, limit));
+            if (myGen != searchGen) return; // a newer search superseded us — let it win
             this.hits = newHits;
             PopulateResults();
             resultsCountLbl.Text = $"{newHits.Count} result(s)";
         }
         catch (Exception ex)
         {
+            if (myGen != searchGen) return;
             resultsCountLbl.Text = "Error: " + ex.Message;
             hits.Clear();
             results.Items.Clear();
         }
         finally
         {
-            searchBtn.Enabled = true;
-            refreshInFlight = false;
-            // Tick may have marked us dirty again while we were querying — coalesce.
-            if (dirty) RefreshIfNeeded();
+            // Only the latest query restores the controls / coalesces; a superseded one
+            // bows out silently so it can't re-enable controls the newer query just disabled.
+            if (myGen == searchGen)
+            {
+                if (userInitiated) SetBusy(false);
+                else searchBtn.Enabled = true;
+                refreshInFlight = false;
+                if (dirty) RefreshIfNeeded();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Marks the panel busy during a user-initiated query: disables the search/filter
+    /// controls and clears the result + preview panes behind a "Loading…" label so it's
+    /// obvious the database is being queried (no spinning wait-cursor).
+    /// </summary>
+    private void SetBusy(bool busy)
+    {
+        searchBox.Enabled = !busy;
+        appCombo.Enabled = !busy;
+        rangeCombo.Enabled = !busy;
+        fromDate.Enabled = !busy;
+        toDate.Enabled = !busy;
+        searchBtn.Enabled = !busy;
+        refreshBtn.Enabled = !busy;
+        if (busy)
+        {
+            results.Items.Clear();
+            ClearPreview();
+            resultsCountLbl.Text = "Loading…";
         }
     }
 
@@ -298,6 +499,8 @@ public partial class BrowsePanel : UserControl
     /// </summary>
     private void PopulateResults()
     {
+        SortHits();
+
         // Snapshot current selection + scroll so we can restore them.
         long? previouslySelectedWindowId = results.SelectedItems.Count > 0
             ? ((SearchHit)results.SelectedItems[0].Tag!).WindowId

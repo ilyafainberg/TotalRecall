@@ -28,6 +28,10 @@ namespace TotalRecall;
 /// </summary>
 public sealed class ActivityLogForm : Form
 {
+    // Keep the on-screen scrollback in lock-step with LogSink's ring buffer so the
+    // window never accumulates more than the documented number of lines.
+    private const int Capacity = 4000;
+
     private readonly TextBox logTxt;
     private readonly Label countLbl;
 
@@ -152,12 +156,46 @@ public sealed class ActivityLogForm : Form
         if (InvokeRequired) { BeginInvoke(new Action<object?, string>(OnLineAppended), sender, line); return; }
         var atBottom = logTxt.SelectionStart >= logTxt.TextLength - 1;
         logTxt.AppendText(line + Environment.NewLine);
+        TrimToCapacity();
         if (atBottom) { logTxt.SelectionStart = logTxt.TextLength; logTxt.ScrollToCaret(); }
         UpdateCount();
     }
 
+    /// <summary>
+    /// Drops the oldest lines so the TextBox holds at most <see cref="Capacity"/> entries.
+    /// Without this the box grows without bound even though <see cref="LogSink"/> caps its
+    /// own ring buffer — the window would drift to 4,001+ lines over a long session.
+    /// </summary>
+    private void TrimToCapacity()
+    {
+        // Lines includes a trailing empty element because the text ends in a newline.
+        int contentLines = ContentLineCount();
+        if (contentLines <= Capacity) return;
+
+        int remove = contentLines - Capacity;
+        var text = logTxt.Text;
+        int idx = 0;
+        for (int i = 0; i < remove; i++)
+        {
+            int nl = text.IndexOf('\n', idx);
+            if (nl < 0) { idx = text.Length; break; }
+            idx = nl + 1;
+        }
+        logTxt.Text = text[idx..];
+        logTxt.SelectionStart = logTxt.TextLength;
+    }
+
+    private int ContentLineCount()
+    {
+        if (logTxt.TextLength == 0) return 0;
+        int n = logTxt.Lines.Length;
+        // A trailing newline produces a final empty Lines element — don't count it.
+        if (logTxt.Text.EndsWith('\n')) n--;
+        return n;
+    }
+
     private void UpdateCount()
     {
-        countLbl.Text = $"{logTxt.Lines.Length:N0} lines · ring buffer keeps the last 4,000";
+        countLbl.Text = $"{ContentLineCount():N0} lines · ring buffer keeps the last {Capacity:N0}";
     }
 }

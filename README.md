@@ -35,7 +35,7 @@ Two install options for the full desktop app, plus a third for just the MCP serv
 
 A single `setup.exe`, no admin/UAC, per-user install with a proper Add/Remove Programs entry.
 
-1. Download `TotalRecall-1.1.1-Setup.zip` from <https://github.com/ilyafainberg/TotalRecall/releases>.
+1. Download `TotalRecall-1.2.0-Setup.zip` from <https://github.com/ilyafainberg/TotalRecall/releases>.
 1. Unzip it (the installer is shipped inside a ZIP so browsers don't flag it as 'not commonly downloaded').
 2. Double-click it.
 3. Windows SmartScreen will say *"Windows protected your PC"* because this build isn't Authenticode-signed yet — click **More info → Run anyway**.
@@ -48,14 +48,14 @@ The MCP server (`TotalRecall.Mcp.exe`) ships next to the main app in `<install d
 
 If you prefer to control where the app lives (e.g. on a USB stick or under `C:\Tools\`), grab the portable ZIP — no install, no Start Menu entry, no Add/Remove Programs entry. Self-contained, no .NET runtime required.
 
-1. Download **`TotalRecall-1.1.1-Portable-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
+1. Download **`TotalRecall-1.2.0-Portable-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases>.
 2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall\`). Don't run from Downloads — the MCP path you wire into your AI agent must be permanent.
 3. Run `TotalRecall\TotalRecall.exe`.
 
 The portable ZIP layout:
 
 ```
-TotalRecall-1.1.1-Portable-win-x64\
+TotalRecall-1.2.0-Portable-win-x64\
 ├─ TotalRecall\
 │  └─ TotalRecall.exe          ← the desktop app
 ├─ TotalRecall.Mcp\
@@ -69,7 +69,7 @@ TotalRecall-1.1.1-Portable-win-x64\
 
 Just want the AI-agent integration and not the capture UI? Grab the standalone MCP bundle. Useful if you already have a TotalRecall database on the machine (from a previous install, or from another user) and only need the server to expose it.
 
-1. Download **`TotalRecall-Mcp-1.1.1-win-x64.zip`** from the release page.
+1. Download **`TotalRecall-Mcp-1.2.0-win-x64.zip`** from the release page.
 2. Extract somewhere **stable** (e.g. `C:\Tools\TotalRecall.Mcp\`).
 3. Wire it into your MCP host — see the bundle's own `README.md` for snippets covering Microsoft Scout, GitHub Copilot CLI, Claude Desktop, VS Code Copilot Chat, and Cursor.
 
@@ -188,7 +188,7 @@ The bundle's own `INSTALL-WITH-AGENT.md` ships the same prompt for sharing.
 
 #### Manual install of the standalone bundle
 
-1. Download **`TotalRecall-Mcp-1.1.1-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
+1. Download **`TotalRecall-Mcp-1.2.0-win-x64.zip`** from <https://github.com/ilyafainberg/TotalRecall/releases/latest>.
 2. Extract to a **stable** path (e.g. `C:\Tools\TotalRecall.Mcp\`). The .exe must end up at `C:\Tools\TotalRecall.Mcp\TotalRecall.Mcp\TotalRecall.Mcp.exe`.
 3. Smoke-test the binary:
    ```powershell
@@ -405,12 +405,12 @@ Run the UI:
 
 The UI is a single window:
 
-- **Header** — a compact capture bar with a live status pill (green dot ● *Recording* / gray ● *Idle*), interval/quality/encryption summary, the time + window count of the last snapshot, **Start** / **Stop** buttons, a **☰** hamburger menu, and **Quit**.
+- **Header** — a compact capture bar with a live status pill (green dot ● *Recording* / gray ● *Idle*), interval/quality/encryption summary, the time + window count of the last snapshot, a single **Start / Stop** toggle button, and a **☰** hamburger menu.
 - **Body (Browse)** — the three-pane workspace where you live:
-  1. **Results** — FTS5 search box + app filter + date range, sortable rows (When / Title / Snippet / App).
+  1. **Results** — FTS5 search box + app filter + a **Time range** dropdown (Any time · Today · Last 24 hours · Last 7 days · Last 30 days · This year · Custom…), sortable rows (click **When / Title / App** to sort).
   2. **Preview** — JPEG screenshot with a zoom slider (Fit · 25/50/75/100/150/200 %). Use **Ctrl+0** for Fit, **Ctrl+1** for 100 %, **Ctrl+** / **Ctrl-** to step, or **Ctrl+wheel**. Right-click → *Open in default viewer* / *Save image as…*.
-  3. **Captured text** — full OCR transcript in a collapsible, resizable pane. Hit **✕** to collapse it (Snippet button reappears in the preview toolbar to bring it back). Right-click → *Copy* / *Select all*.
-- **Hamburger menu (☰)** — Refresh results (**F5**), Activity log (**Ctrl+L**), Settings… (**Ctrl+,**), Open DB folder (**Ctrl+Shift+D**), About.
+  3. **Captured text** — full OCR transcript in a collapsible, resizable pane. Use the **arrow-bar** button to collapse it (a restore button reappears in the preview toolbar to bring it back). Right-click → *Copy* / *Select all*.
+- **Hamburger menu (☰)** — Refresh results (**F5**), Activity log (**Ctrl+L**), Settings… (**Ctrl+,**), Open DB folder (**Ctrl+Shift+D**), Check for updates…, About, and Quit.
 - **Activity log** and **Settings** are separate non-modal windows you open from the hamburger.
 
 Settings live in `%LOCALAPPDATA%\TotalRecall\settings.json`. The default database path is `%LOCALAPPDATA%\TotalRecall\recall.db`.

@@ -133,13 +133,16 @@ public partial class MainForm : Form
 
         capStartBtn.Click += async (_, _) =>
         {
-            await StartAsync();
-            PersistCaptureIntent(true);
-        };
-        capStopBtn.Click += (_, _) =>
-        {
-            Stop();
-            PersistCaptureIntent(false);
+            if (timer != null)
+            {
+                Stop();
+                PersistCaptureIntent(false);
+            }
+            else
+            {
+                await StartAsync();
+                PersistCaptureIntent(true);
+            }
         };
 
         BuildHamburgerMenu();
@@ -155,7 +158,7 @@ public partial class MainForm : Form
         // window was hidden, rather than waiting for the next tick.
         Activated += (_, _) => browsePanel.RefreshIfNeeded();
 
-        quitBtn.Click += (_, _) => { reallyExit = true; Close(); };
+        browsePanel.ResultLimit = settings.SearchResultLimit;
 
         BuildTrayIcon();
 
@@ -202,7 +205,10 @@ public partial class MainForm : Form
         hamburgerMenu.Items.Add(MakeMenuItem("Settings…",        "Ctrl+,",       OpenSettings));
         hamburgerMenu.Items.Add(MakeMenuItem("Open DB folder",   "Ctrl+Shift+D", OpenDbFolder));
         hamburgerMenu.Items.Add(new ToolStripSeparator());
+        hamburgerMenu.Items.Add(MakeMenuItem("Check for updates…", null,        CheckForUpdates));
         hamburgerMenu.Items.Add(MakeMenuItem("About TotalRecall…", null,         ShowAbout));
+        hamburgerMenu.Items.Add(new ToolStripSeparator());
+        hamburgerMenu.Items.Add(MakeMenuItem("Quit",             null,           () => { reallyExit = true; Close(); }));
     }
 
     private static ToolStripMenuItem MakeMenuItem(string text, string? shortcut, Action onClick)
@@ -260,6 +266,7 @@ public partial class MainForm : Form
 
                 RefreshCaptureSummary();
                 UpdateDbLabel();
+                browsePanel.ResultLimit = settings.SearchResultLimit;
 
                 if (!encryptionChanged)
                 {
@@ -383,14 +390,19 @@ public partial class MainForm : Form
 
     private void ShowAbout()
     {
-        var asm = typeof(MainForm).Assembly;
-        var ver = asm.GetName().Version?.ToString(3) ?? "?";
-        var msg =
-            $"TotalRecall v{ver}\r\n" +
-            "Local screen-activity indexer.\r\n\r\n" +
-            "https://github.com/ilyafainberg/TotalRecall\r\n\r\n" +
-            "Licensed under GPL-3.0-or-later.";
-        MessageBox.Show(this, msg, "About TotalRecall", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        using var dlg = new AboutForm();
+        CenterChildOnThis(dlg);
+        dlg.StartPosition = FormStartPosition.CenterParent;
+        dlg.ShowDialog(this);
+    }
+
+    private void CheckForUpdates()
+    {
+        var ver = typeof(MainForm).Assembly.GetName().Version ?? new Version(0, 0, 0);
+        using var dlg = new UpdateDialog(ver);
+        CenterChildOnThis(dlg);
+        dlg.StartPosition = FormStartPosition.CenterParent;
+        dlg.ShowDialog(this);
     }
 
     // --- Keyboard shortcuts ---------------------------------------------
@@ -564,8 +576,20 @@ public partial class MainForm : Form
         capDotLbl.ForeColor = running ? Theme.Ok : Color.FromArgb(170, 170, 178);
         capStateLbl.Text = running ? "Recording" : "Idle";
         capStateLbl.ForeColor = running ? Theme.Ok : Theme.FgMuted;
-        capStartBtn.Enabled = !running;
-        capStopBtn.Enabled  = running;
+        // Single toggle button: blue "Start" when idle, neutral "Stop" when recording.
+        if (running)
+        {
+            capStartBtn.Text = "■  Stop";
+            capStartBtn.BackColor = Color.FromArgb(235, 235, 238);
+            capStartBtn.ForeColor = Color.FromArgb(28, 28, 30);
+        }
+        else
+        {
+            capStartBtn.Text = "▶  Start";
+            capStartBtn.BackColor = Color.FromArgb(76, 154, 255);
+            capStartBtn.ForeColor = Color.White;
+        }
+        capStartBtn.Enabled = true;
     }
 
     private async Task StartAsync()

@@ -1,3 +1,41 @@
+# TotalRecall v1.2.0
+
+A big browse-experience + performance release. The Browse pane is faster and simpler on large databases, screenshots load lazily, and there's an in-app updater.
+
+## What's new
+
+### Search & browse
+- **Simpler, faster search.** The fiddly start-date + count + Day/Week/Month controls are gone. There's now a single **Time range** dropdown — *Any time · Today · Last 24 hours · Last 7 days · Last 30 days · This year · Custom…* — that defaults to **Last 7 days** so opening the app never scans your whole database. Picking a range searches immediately (no separate Filter button). **Custom…** reveals two date pickers and tolerates an inverted from/to range.
+- **Sortable columns.** Click the **When / Title / App** headers to sort, with a ▲/▼ indicator.
+- **Clear loading state.** While a query runs, the panels clear and show a plain **"Loading…"** label instead of a spinning wait-cursor, and overlapping searches (e.g. rapid range changes) no longer get stuck in a loading loop.
+- **Single Start / Stop button.** The two header buttons are now one toggle, and **Quit** moved into the **☰** menu.
+
+### Performance
+- **Screenshots split into their own table.** JPEG blobs moved out of the main `windows` table into a 1:1 `window_images` side table. The `windows` b-tree stays small, so metadata/search scans are dramatically faster on multi-GB databases. Existing databases keep working — old inline images still render via a fallback.
+- **Lazy image loading.** The results list and search never carry image bytes; a screenshot is fetched only when you actually select a row.
+- **Query tuning.** Newest-first ordering now walks the primary key instead of sorting a joined column, plus `temp_store=MEMORY` and a larger page cache — the difference between an instant Browse load and a multi-second hang on a large DB.
+
+### Updates & polish
+- **In-app updater.** **☰ → Check for updates…** queries the GitHub Releases API, and downloads the new portable build with a live progress bar.
+- **Clickable About** with the project link and author credit.
+- **Result limit moved to Settings** (out of the search bar).
+- **JPEG-quality slider ignores the mouse wheel** so scrolling Settings can't nudge it; the **Store JPEGs** checkbox is no longer clipped.
+- **Cleaner splitter** — the chunky Win32 "barbell" cursor is replaced by the standard resize cursor, shown only over the divider.
+- **Activity log** now trims to the last 4,000 lines (matching its ring buffer).
+- **Corrected encryption note** — changing the encryption mode/passphrase re-encrypts the existing database in place.
+
+## Artifacts
+- **🟢 Inno Setup installer** *(recommended)* — `TotalRecall-1.2.0-Setup.zip`. Unzip, then run the installer inside. Single-file, per-user install, no admin/UAC. *(Shipped inside a ZIP so SmartScreen / Edge / Chrome don't flag the raw `.exe` as "not commonly downloaded".)*
+- **Portable ZIP** — `TotalRecall-1.2.0-Portable-win-x64.zip`. Extract anywhere stable, run `TotalRecall\TotalRecall.exe`. Self-contained, no install, no Add/Remove Programs entry.
+- **MCP server only** — `TotalRecall-Mcp-1.2.0-win-x64.zip`. Standalone MCP server bundle for users who already have a TotalRecall DB and only need the AI-agent integration.
+
+All artifacts are self-contained — no .NET runtime required.
+
+## Upgrading from 1.1.x
+`settings.json` and the MCP tool surface are unchanged. The database schema gains the `window_images` table automatically on first open; your existing captures (including old screenshots) keep working. New captures store images in the side table — the existing file only shrinks as retention runs.
+
+---
+
 # TotalRecall v1.1.1
 
 UX polish + stability fixes that surfaced after v1.1.0 went live.
