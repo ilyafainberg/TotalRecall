@@ -1,6 +1,9 @@
 # TotalRecall
 
 > A local, searchable, encrypted index of **everything that happens on your computer** — built on .NET 10, fully open source, **100% on-device**, with an optional MCP server so AI agents can query it.
+
+![TotalRecall in action: type a vague memory and full-text search surfaces the exact moment, with the OCR'd text alongside](docs/demo.gif)
+
 <img width="1664" height="1093" alt="image" src="https://github.com/user-attachments/assets/4c7f07c6-6336-469b-94b8-a5035c6a7f58" />
 
 
